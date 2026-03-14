@@ -7,16 +7,22 @@ High-level architecture for a JUCE-based AUv2 MIDI Effect step sequencer.
 ## Component overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  PluginEditor (UI)                                          │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  TileStrip — 8 tile slots, horizontal row            │   │
-│  │  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐                │   │
-│  │  │  C4  │ │  E4  │ │  —   │ │  G4  │ ...            │   │
-│  │  └──────┘ └──────┘ └──────┘ └──────┘                │   │
-│  └──────────────────────────────────────────────────────┘   │
-│  [ Rate ▾ ]   [ → ] [ ← ] [ ⤮ ]   [ ● REC ] [ REST ]     │
-└─────────┬───────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  PluginEditor (UI)                                           │
+│  ┌────────┐  ┌──────────────────────────────────────────┐   │
+│  │ RATE   │  │  TileGrid — 2 rows × 4 columns           │   │
+│  │  1/8   │  │  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐   │   │
+│  ├────────┤  │  │  C   │ │  E   │ │  G   │ │  B   │   │   │
+│  │ MODE   │  │  └──────┘ └──────┘ └──────┘ └──────┘   │   │
+│  │   →    │  │  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐   │   │
+│  ├────────┤  │  │  D   │ │  F#  │ │  A   │ │  —   │   │   │
+│  │  REC   │  │  └──────┘ └──────┘ └──────┘ └──────┘   │   │
+│  ├────────┤  └──────────────────────────────────────────┘   │
+│  │  REST  │                                                  │
+│  ├────────┤                                                  │
+│  │  LOCK  │                                                  │
+│  └────────┘                                                  │
+└─────────┬────────────────────────────────────────────────────┘
           │ reads shared state via atomic / lock-free fields
           │ writes user actions (record toggle, mode change)
 ┌─────────▼───────────────────────────────────────────────────┐
@@ -54,7 +60,7 @@ int                  stepCount_;    // 0–8, number of filled steps
 std::atomic<int>     currentStep_;  // index of the step currently playing (shared with editor)
 ```
 
-- `steps_` and `stepCount_` are modified only by the processor on the audio thread (during recording) or by the editor via a lock-free update mechanism (tile reorder in P1).
+- `steps_` and `stepCount_` are modified only by the processor on the audio thread (during recording) or by the editor via a lock-free update mechanism (tile reorder — P0).
 - `currentStep_` is atomic — written by the processor each time the step advances, read by the editor for highlight.
 
 ### APVTS parameters
@@ -63,7 +69,8 @@ std::atomic<int>     currentStep_;  // index of the step currently playing (shar
 |---|---|---|---|
 | `rate` | Choice | `1/1, 1/2, 1/4, 1/8, 1/16, 1/32` | Index 0–5 |
 | `mode` | Choice | `Forward, Reverse, Random` | Index 0–2 |
-| `recording` | Bool | on/off | Toggled by Record button |
+| `recording` | Bool | on/off | Toggled by Record tile |
+| `locked` | Bool | on/off | Toggled by Lock tile; disables drag reorder |
 
 Rate and mode are persisted via APVTS and saved/restored with the plugin state. The step data (`steps_`, `stepCount_`) is serialized in `getStateInformation` / `setStateInformation` as raw bytes appended after the APVTS XML block.
 
@@ -152,36 +159,40 @@ The editor uses a `juce::Timer` (30–60 Hz) to poll `currentStep_` from the pro
 
 ### Tile rendering
 
-Each tile is a rectangle in the tile strip area. The editor iterates over `steps_[0..stepCount-1]` and draws:
+Each tile is a rectangle in the 2×4 grid. The editor iterates over `steps_[0..stepCount-1]` and draws:
 
-- **Filled tile**: solid color rectangle + note name text (e.g. "C4", "F#3"). At P0, all tiles share a single accent color. At P1, each tile gets a pitch-class color.
-- **Rest tile**: dark grey rectangle + dash/rest symbol.
+- **Filled tile**: solid color rectangle + note name only in very large text (e.g. "C", "F#") — no octave. At P0, all tiles are white with black text. At P1, each tile gets a pitch-class color.
+- **Rest tile**: dark rectangle + dash/rest symbol.
 - **Empty slot** (index >= stepCount): very dark outline only.
-- **Active tile** (index == currentStep): brighter variant of the tile's color.
+- **Active tile** (index == currentStep): inverted at P0 (black bg, white text); brighter color variant at P1.
 
-Note name rendering uses `juce::MidiMessage::getMidiNoteName(noteNumber, true, true, octaveMiddleC)`.
+Note name rendering: `juce::MidiMessage::getMidiNoteName(noteNumber, true, false, 4)` — `includeOctaveNumber = false`.
 
 ### Controls
 
-All controls are wired to APVTS parameters via attachments:
+All five controls live in the left column as equal-height tiles. They are custom-painted `juce::Component` subclasses drawn directly by the editor, wired to APVTS parameters via attachments:
 
-- **Rate selector**: `juce::ComboBox` + `ComboBoxAttachment` bound to `rate`.
-- **Mode buttons**: three `juce::ToggleButton`s in a radio group + custom `ButtonAttachment`s bound to `mode`. Only one is active at a time.
-- **Record button**: `juce::ToggleButton` + `ButtonAttachment` bound to `recording`. Custom paint gives it a pulsing glow while active.
-- **Rest button**: plain `juce::TextButton`. On click, sends a message to the processor to append a rest step. Enabled only while recording and `stepCount < 8`.
+- **Rate tile**: cycles through rate values on click. `ComboBoxAttachment` (or custom) bound to `rate`. Displays current value (e.g. "1/8").
+- **Mode tile**: cycles Forward → Reverse → Random on click. `ButtonAttachment` bound to `mode`. Displays a directional symbol (→ / ← / ⇄).
+- **Record tile**: `juce::ToggleButton` + `ButtonAttachment` bound to `recording`. Displays ⏺; visually active while recording.
+- **Rest tile**: plain `juce::TextButton`. On click, sends a message to the processor to append a rest step. Enabled only while recording and `stepCount < 8`. Displays —.
+- **Lock tile**: `juce::ToggleButton` + `ButtonAttachment` bound to `locked`. Displays a flat SVG padlock icon; visually distinct when locked.
 
 ### Layout
 
-All layout constants are in an anonymous namespace at the top of `PluginEditor.cpp`:
+The panel sizes to content — no fixed panel dimensions. All layout constants are in an anonymous namespace at the top of `PluginEditor.cpp`:
 
 ```cpp
 namespace {
-    constexpr int kPanelWidth  = 600;
-    constexpr int kPanelHeight = 200;
-    constexpr int kTileMargin  = 6;
-    constexpr int kTileY       = 50;
-    constexpr int kTileHeight  = 90;
-    // tile width is computed: (panelWidth - margins) / 8
+    constexpr int kPadding      = 14;   // panel edge padding
+    constexpr int kGap          = 8;    // gap between all tiles
+    constexpr int kCtrlColWidth = 68;   // left control column width
+    constexpr int kTileW        = 120;  // note tile width
+    constexpr int kTileH        = 160;  // note tile height
+    constexpr int kGridCols     = 4;
+    constexpr int kGridRows     = 2;
+    // panel width  = kPadding*2 + kCtrlColWidth + kGap + kGridCols*kTileW + (kGridCols-1)*kGap
+    // panel height = kPadding*2 + kGridRows*kTileH + (kGridRows-1)*kGap
 }
 ```
 
@@ -197,11 +208,11 @@ There are only two threads to worry about: the audio thread (processor) and the 
 | `stepCount_` | Audio thread (recording) | Message thread | `std::atomic<int>` |
 | `steps_[]` | Audio thread (recording) | Message thread (display) | Atomic stepCount acts as a release fence — editor only reads indices < stepCount, processor only writes at index == stepCount |
 | APVTS params | Message thread (UI) | Audio thread | JUCE APVTS (lock-free by design) |
-| Tile reorder (P1) | Message thread | Audio thread | Lock-free swap via atomic flag + shadow buffer (see below) |
+| Tile reorder (P0) | Message thread | Audio thread | Lock-free swap via atomic flag + shadow buffer (see below) |
 
-### P1: Lock-free tile reorder
+### P0: Lock-free tile reorder
 
-When the user finishes a Shift+drag reorder, the editor writes the new step order into a shadow array and sets an atomic flag. On the next `processBlock`, the processor detects the flag, copies the shadow array into `steps_[]`, and clears the flag. This avoids any locks on the audio thread.
+When the user finishes a drag reorder, the editor writes the new step order into a shadow array and sets an atomic flag. On the next `processBlock`, the processor detects the flag, copies the shadow array into `steps_[]`, and clears the flag. This avoids any locks on the audio thread.
 
 ---
 
@@ -249,7 +260,8 @@ Sqeletor/
 │   ├── RESEARCH.md
 │   └── DESIGN.md          ← this file
 ├── mocks/
-│   └── whiteboard.jpeg
+│   ├── mock-1.png          ← initial layout sketch
+│   └── mock-2.html         ← interactive placeholder mock (P0 style)
 └── src/
     ├── PluginProcessor.h
     ├── PluginProcessor.cpp

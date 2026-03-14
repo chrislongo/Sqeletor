@@ -55,11 +55,11 @@ A Logic Pro MIDI FX step sequencer that feels like a built-in feature Logic neve
 
 ### P0 — MVP
 
-Nothing ships without this. The tile UI ships at P0 — it's the product identity, not a later polish pass.
+Nothing ships without this. The tile UI ships at P0 — it's the product identity, not a later polish pass. Includes drag reordering and lock; manipulating the sequence is core to the fun.
 
 ### P1 — First real feel
 
-Note colors, scale/key awareness, and tile reordering. The plugin becomes genuinely musical and editable.
+Note colors and scale/key awareness. The plugin becomes genuinely musical.
 
 ### P2 — Quality of life
 
@@ -88,7 +88,7 @@ Additional playback modes and flexible step counts for non-diatonic patterns.
 ### Rate
 
 - Playback rate relative to host tempo
-- Options: 1/1, 1/2, 1/4, 1/8, 1/16, 1/32
+- Options: 1/1, 1/2, 1/4, 1/8, 1/16, 1/32 along with dotted and triplet varients
 
 ### Playback modes
 
@@ -105,36 +105,60 @@ Additional playback modes and flexible step counts for non-diatonic patterns.
 
 ### UI — Layout
 
-- Single panel, fixed size (TBD — roughly 600×200px)
-- **Top:** Rate selector (left)
-- **Middle:** Up to 8 note tiles in a horizontal row; empty slots are visually distinct from filled ones
-- **Bottom:** Playback mode buttons (left), Record button (center), Rest button (center-right)
+- Panel sizes to content — no fixed dimensions; it wraps its controls exactly
+- **Left column (narrow, ~68px):** 5 small control tiles stacked vertically — Rate, Mode, Record, Rest, Lock
+- **Main area:** 8 note tiles in a 2-row × 4-column grid (~120×160px per tile), 8px gaps
+- Steps fill left-to-right, top-to-bottom (slot 1 = top-left, slot 4 = top-right, slot 5 = bottom-left, slot 8 = bottom-right)
 
 ### UI — Note tiles
 
-- Each filled tile displays the note name in large text (e.g. "C", "F#")
+- Each filled tile displays only the note name in very large text filling almost the full tile (e.g. "C", "F#") — no octave number
 - Rest tiles display a dash or rest symbol
-- The currently playing tile is highlighted
+- The currently playing tile is highlighted (inverted at P0; full-brightness neon at P1)
 - Empty (unrecorded) slots are visually subdued
-- Tiles are a neutral color at P0; per-pitch-class colors are P1
+- Tiles are white with black text at P0 (placeholder); per-pitch-class neon colors are P1
+
+### Tile reordering (drag)
+
+- Drag any filled tile to reorder the sequence without re-recording
+- The dragged tile lifts and follows the cursor
+- As the dragged tile crosses the midpoint of a neighboring tile, the neighbor slides into the vacated slot — tiles animate smoothly to reflect the pending new order
+- On release, the tile drops into its target position; tiles between the original and target positions shift one step toward the origin (insert-and-shift, not swap)
+- Dragging is only active when **not recording** and **not locked** (see Lock below)
+- Works during playback — the sequence updates live; the current step index resets to step 1 on reorder
+
+### Lock
+
+- A **Lock** toggle in the control column prevents accidental reordering during performance
+- When locked: drag gestures on tiles are ignored; the lock control is visually distinct (e.g. lit indicator)
+- Lock does not affect recording or playback — only disables drag reordering
 
 ### UI — Controls
 
-- **Rate:** dropdown or segmented button, top-left
-- **Playback mode:** three icon buttons (→, ←, shuffle), bottom-left; active mode highlighted
-- **Record:** prominent button; glows/pulses while recording is active
-- **Rest:** button active only during recording; enters a silent step
+All controls live in the narrow left column as small tiles:
+- **Rate:** small tile, top of left column
+- **Playback mode:** small tile; cycles or displays current mode (→, ←, shuffle); active mode highlighted
+- **Record:** small tile; glows/pulses while recording is active
+- **Rest:** small tile; active only during recording; enters a silent step
+- **Lock:** small tile; when active, disables drag reordering to prevent accidental changes during performance; visually distinct when engaged
 
 ### UI — Design language
 
-Sqeletor intentionally departs from the silver-grey Corvid Audio house style. The target vibe is Valhalla DSP — dark, electric, and fun.
+Sqeletor takes the Torso T-1 hardware sequencer as a visual reference point — matte black chassis, dense grid of backlit pads, minimal labeling — then cranks the LED saturation up and makes the colors per-pitch rather than per-state. The result is a dark hardware-inspired panel where the note tiles glow like actual RGB-backlit silicone pads.
 
-- **Panel background:** near-black (e.g. `#0e0e1a` deep navy-black, or pure `#111111` — TBD)
-- **Flat** — no bevels, no shadows (same rule as other Corvid plugins)
-- **Text:** bold white; labels uppercase
-- **Tile colors:** 12 vibrant, high-saturation pitch-class colors — purples, cyans, electric blues, magentas, hot pinks, lime greens. Full palette TBD at implementation; aim for Valhalla-style neon saturation, not pastels
-- **Active tile:** brighter / higher-luminance variant of its pitch color
-- **Rest tiles:** dim neutral (dark grey)
+**P0 placeholder (structural):**
+- **Panel background:** `#000000`
+- **Tiles:** flat white (`#ffffff`) with black text — no colors, no effects
+- **Active tile:** inverted (black background, white outline, white text)
+- **Control tiles:** same flat white treatment; labels in tiny uppercase black text above the symbol
+
+**P1 target (final aesthetic):**
+- **Panel background:** near-black matte (`#111111`) — evokes anodized aluminum
+- **Flat** — no bevels, no shadows; hardware realism comes from color and luminance
+- **Tile colors:** 12 vibrant, high-saturation pitch-class colors — purples, cyans, electric blues, magentas, hot pinks, lime greens. Solid colored tile backgrounds (not transparent tints). Aim for neon-backlit-pad energy.
+- **Text:** white on colored tiles; bold; uppercase labels
+- **Active (playing) tile:** brighter variant of its pitch color — the "LED at full brightness" look; glow pulse animation
+- **Rest tiles:** near-black (`#1a1a1a`) — an unlit pad
 - **Empty slots:** very dark, barely-visible outline only
 
 ---
@@ -145,23 +169,13 @@ Sqeletor intentionally departs from the silver-grey Corvid Audio house style. Th
 
 - One vibrant, high-saturation color per pitch class (12 colors total)
 - Rest tiles are grey/neutral
-- Tile colors contrast against the silver-grey `#d8d8d8` panel background
+- Full 12-color palette defined here; at P0 tiles render in a placeholder neutral color
 
 ### Scale / key
 
 - Dropdown to select root note and scale/mode
 - Populates the step slots with the notes of the chosen scale in ascending order
 - Recorded notes snap to the selected scale (or this is how initial slot values are set — TBD)
-
-### Tile reordering (Shift+drag)
-
-- Hold **Shift** and drag any filled tile to reorder the sequence without re-recording
-- The dragged tile lifts and follows the cursor horizontally
-- As the dragged tile crosses the midpoint of a neighboring tile, the neighbor slides into the vacated slot — tiles animate smoothly to reflect the pending new order
-- On release, the dragged tile drops into its target position; all tiles between the original and target positions have shifted one step toward the origin (insert-and-shift, not swap)
-- Dragging beyond the last filled tile appends it at the end; dragging before the first tile prepends it
-- Works during playback — the sequence updates live; the current step index resets to 1 on reorder to avoid a stale index
-- Shift+drag is only active when not recording
 
 ---
 
