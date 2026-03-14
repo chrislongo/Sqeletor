@@ -59,7 +59,7 @@ Nothing ships without this. The tile UI ships at P0 — it's the product identit
 
 ### P1 — First real feel
 
-Note colors and scale/key awareness. The plugin becomes genuinely musical.
+Note colors, scale/key awareness, and tile reordering. The plugin becomes genuinely musical and editable.
 
 ### P2 — Quality of life
 
@@ -152,6 +152,16 @@ Sqeletor intentionally departs from the silver-grey Corvid Audio house style. Th
 - Dropdown to select root note and scale/mode
 - Populates the step slots with the notes of the chosen scale in ascending order
 - Recorded notes snap to the selected scale (or this is how initial slot values are set — TBD)
+
+### Tile reordering (Shift+drag)
+
+- Hold **Shift** and drag any filled tile to reorder the sequence without re-recording
+- The dragged tile lifts and follows the cursor horizontally
+- As the dragged tile crosses the midpoint of a neighboring tile, the neighbor slides into the vacated slot — tiles animate smoothly to reflect the pending new order
+- On release, the dragged tile drops into its target position; all tiles between the original and target positions have shifted one step toward the origin (insert-and-shift, not swap)
+- Dragging beyond the last filled tile appends it at the end; dragging before the first tile prepends it
+- Works during playback — the sequence updates live; the current step index resets to 1 on reorder to avoid a stale index
+- Shift+drag is only active when not recording
 
 ---
 
