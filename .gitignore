@@ -1,0 +1,79 @@
+.DS_Store
+*.swp
+*.swo
+*.tmp
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two "/" to be ignored
+Icon\r
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+
+# VS Code
+.vscode/
+
+# Build / packaging
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+*.cache
+*.log
+*.user
+*.userosscache
+*.suo
+*.ncb
+*.opendb
+*.VC.db
+
+# NuGet
+*.nupkg
+packages/
+
+# Rider
+.idea/
+.idea/*
+*.sln.iml
+
+# JetBrains
+*.iml
+
+# User-specific
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# Temporary
+*.tmp
+*~
+
+# Node
+node_modules/
+
+# Environment
+.env
+.env.local
+
+# Misc
+.vagrant/
