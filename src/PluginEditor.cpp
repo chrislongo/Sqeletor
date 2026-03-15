@@ -8,12 +8,18 @@ namespace {
     constexpr int kTileH        = 120;
     constexpr int kGridCols     = 4;
     constexpr int kGridRows     = 2;
-    constexpr int kNumCtrl      = 5;
+    constexpr int kNumCtrl      = 4;
+    constexpr int kNumScaleCtrl = 2;   // Key + Scale on right
 
-    constexpr int kPanelW = kPadding * 2 + kCtrlColWidth + kGap
-                            + kGridCols * kTileW + (kGridCols - 1) * kGap;
+    constexpr int kGridW  = kGridCols * kTileW + (kGridCols - 1) * kGap;
+    constexpr int kPanelW = kPadding * 2 + kCtrlColWidth + kGap + kGridW + kGap + kCtrlColWidth;
     constexpr int kPanelH = kPadding * 2 + kGridRows * kTileH + (kGridRows - 1) * kGap;
-    constexpr int kCtrlTileH = (kPanelH - kPadding * 2 - (kNumCtrl - 1) * kGap) / kNumCtrl;
+
+    constexpr int kCtrlTileH  = (kPanelH - kPadding * 2 - (kNumCtrl      - 1) * kGap) / kNumCtrl;
+    constexpr int kScaleTileH = (kPanelH - kPadding * 2 - (kNumScaleCtrl - 1) * kGap) / kNumScaleCtrl;
+
+    // X origin of the right (scale) control column
+    constexpr int kRightColX = kPadding + kCtrlColWidth + kGap + kGridW + kGap;
 }
 
 //==============================================================================
@@ -63,6 +69,14 @@ juce::Rectangle<int> SqeletorEditor::getNoteTileBounds (int index) const
              kTileW, kTileH };
 }
 
+juce::Rectangle<int> SqeletorEditor::getScaleTileBounds (int index) const
+{
+    return { kRightColX,
+             kPadding + index * (kScaleTileH + kGap),
+             kCtrlColWidth,
+             kScaleTileH };
+}
+
 int SqeletorEditor::noteTileAt (juce::Point<int> pos) const
 {
     for (int i = 0; i < SqeletorProcessor::kMaxSteps; ++i)
@@ -76,79 +90,21 @@ int SqeletorEditor::noteTileAt (juce::Point<int> pos) const
 
 void SqeletorEditor::drawCtrlTile (juce::Graphics& g,
                                     juce::Rectangle<int> bounds,
-                                    const juce::String& label,
+                                    const juce::String& /*label*/,
                                     const juce::String& value,
                                     bool active) const
 {
-    // Active = hot pink; inactive = dark tile
     g.setColour (active ? juce::Colour (0xffe8347a) : juce::Colour (0xff242432));
     g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
 
-    // Tiny label
-    g.setColour (active ? juce::Colour (0xccffffff) : juce::Colour (0x99aaaacc));
-    g.setFont (juce::Font (juce::FontOptions().withHeight (7.0f)));
-    g.drawText (label, bounds.withHeight (14).translated (0, 4), juce::Justification::centred);
-
-    // Value
     g.setColour (active ? juce::Colours::white : juce::Colour (0xffddddee));
-    float fontSize = (value.length() > 4) ? 12.0f : (value.length() > 3) ? 14.0f : 18.0f;
+    float fontSize = (value.length() > 7) ? 10.0f
+                   : (value.length() > 4) ? 12.0f
+                   : (value.length() > 3) ? 14.0f : 18.0f;
     g.setFont (juce::Font (juce::FontOptions().withHeight (fontSize)));
-    g.drawText (value, bounds.withTrimmedTop (10), juce::Justification::centred);
+    g.drawText (value, bounds.toFloat(), juce::Justification::centred);
 }
 
-void SqeletorEditor::drawLockIcon (juce::Graphics& g,
-                                    juce::Rectangle<float> b,
-                                    juce::Colour colour,
-                                    bool locked) const
-{
-    // Scale everything to a small icon centred in b
-    float iconH   = b.getHeight() * 0.62f;
-    float iconW   = iconH * 0.75f;
-    float cx      = b.getCentreX();
-    float cy      = b.getCentreY() + iconH * 0.05f;
-
-    float bodyH   = iconH * 0.55f;
-    float bodyW   = iconW;
-    float bodyTop = cy - bodyH * 0.5f + iconH * 0.1f;
-
-    // Body — filled rounded rect
-    juce::Rectangle<float> body { cx - bodyW * 0.5f, bodyTop, bodyW, bodyH };
-    g.setColour (colour);
-    g.fillRoundedRectangle (body, bodyW * 0.12f);
-
-    // Shackle — U-arch above body, stroked
-    float sw      = bodyW * 0.58f;          // inner gap width
-    float stroke  = bodyW * 0.18f;          // shackle thickness
-    float archR   = (sw + stroke) * 0.5f;   // outer radius
-    float archTop = bodyTop - archR * 1.1f;
-
-    juce::Path shackle;
-    if (locked)
-    {
-        // Closed: full semicircle, legs drop into the body
-        shackle.addArc (cx - archR, archTop, archR * 2.0f, archR * 2.0f,
-                        juce::MathConstants<float>::pi,
-                        juce::MathConstants<float>::twoPi, true);
-        shackle.lineTo (cx + archR, bodyTop + stroke);
-        shackle.startNewSubPath (cx - archR, bodyTop + stroke);
-        shackle.lineTo (cx - archR, archTop + archR);
-    }
-    else
-    {
-        // Open: right leg lifted clear of body
-        float legY = archTop - archR * 0.35f;
-        shackle.addArc (cx - archR, archTop, archR * 2.0f, archR * 2.0f,
-                        juce::MathConstants<float>::pi,
-                        juce::MathConstants<float>::twoPi, true);
-        shackle.lineTo (cx + archR, legY);
-        shackle.startNewSubPath (cx - archR, bodyTop + stroke);
-        shackle.lineTo (cx - archR, archTop + archR);
-    }
-
-    g.strokePath (shackle, juce::PathStrokeType (stroke,
-                                                  juce::PathStrokeType::curved,
-                                                  juce::PathStrokeType::rounded));
-}
 
 namespace {
     // 12-colour palette — one per pitch class (C through B), Vital-style neons
@@ -175,7 +131,8 @@ void SqeletorEditor::drawNoteTile (juce::Graphics& g,
                                     bool isEmpty,
                                     bool isRest,
                                     juce::Colour tileColour,
-                                    float flashBrightness) const
+                                    float flashBrightness,
+                                    int octave) const
 {
     if (isEmpty)
     {
@@ -186,14 +143,12 @@ void SqeletorEditor::drawNoteTile (juce::Graphics& g,
 
     if (isActive)
     {
-        // Flash: interpolate from tile colour toward white on beat
         auto fillColour = tileColour.interpolatedWith (juce::Colours::white, flashBrightness);
         g.setColour (fillColour);
         g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
     }
     else
     {
-        // Inactive: dark fill
         g.setColour (juce::Colour (0xff242432));
         g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
     }
@@ -202,9 +157,21 @@ void SqeletorEditor::drawNoteTile (juce::Graphics& g,
                                : (isRest ? tileColour.withAlpha (0.35f) : tileColour);
     g.setColour (textColour);
 
-    float fontSize = (noteName.length() > 1) ? 62.0f : 88.0f;
-    g.setFont (juce::Font (juce::FontOptions().withHeight (fontSize)));
+    float fontSize = (noteName.length() > 1) ? 68.0f : 96.0f;
+    g.setFont (juce::Font (juce::FontOptions().withHeight (fontSize).withStyle ("Bold")));
     g.drawText (noteName, bounds, juce::Justification::centred);
+
+    // Octave label — bottom-right corner, small
+    if (octave != -100 && ! isRest)
+    {
+        auto octColour = isActive ? juce::Colours::white.withAlpha (0.55f)
+                                  : textColour.withAlpha (0.45f);
+        g.setColour (octColour);
+        g.setFont (juce::Font (juce::FontOptions().withHeight (16.0f).withStyle ("Bold")));
+        g.drawText (juce::String (octave),
+                    bounds.reduced (6).removeFromBottom (22).removeFromRight (28),
+                    juce::Justification::centredRight);
+    }
 }
 
 //==============================================================================
@@ -217,13 +184,13 @@ void SqeletorEditor::paint (juce::Graphics& g)
     g.setGradientFill (overlay);
     g.fillAll();
 
-    auto* recParam  = static_cast<juce::AudioParameterBool*>   (proc_.apvts.getParameter ("recording"));
-    auto* modeParam = static_cast<juce::AudioParameterChoice*> (proc_.apvts.getParameter ("mode"));
-    auto* rateParam = static_cast<juce::AudioParameterChoice*> (proc_.apvts.getParameter ("rate"));
-    auto* lockParam = static_cast<juce::AudioParameterBool*>   (proc_.apvts.getParameter ("locked"));
-
+    auto* recParam   = static_cast<juce::AudioParameterBool*>   (proc_.apvts.getParameter ("recording"));
+    auto* modeParam  = static_cast<juce::AudioParameterChoice*> (proc_.apvts.getParameter ("mode"));
+    auto* rateParam  = static_cast<juce::AudioParameterChoice*> (proc_.apvts.getParameter ("rate"));
+    auto* keyParam   = static_cast<juce::AudioParameterChoice*> (proc_.apvts.getParameter ("key"));
+    auto* scaleParam = static_cast<juce::AudioParameterChoice*> (proc_.apvts.getParameter ("scale"));
     bool isRecording = recParam->get();
-    bool isLocked    = lockParam->get();
+    bool scaleActive = scaleParam->getIndex() != 0;
 
     static const juce::String kModeSymbols[] = {
         juce::String (juce::CharPointer_UTF8 ("\xe2\x86\x92")),   // →
@@ -239,15 +206,9 @@ void SqeletorEditor::paint (juce::Graphics& g)
     drawCtrlTile (g, getCtrlTileBounds (3), "REST",
                   juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94")), false);        // —
 
-    // Lock tile — draw manually to get the icon
-    auto lockBounds = getCtrlTileBounds (4);
-    g.setColour (isLocked ? juce::Colour (0xffe8347a) : juce::Colour (0xff242432));
-    g.fillRoundedRectangle (lockBounds.toFloat(), 4.0f);
-    g.setColour (isLocked ? juce::Colour (0xccffffff) : juce::Colour (0x99aaaacc));
-    g.setFont (juce::Font (juce::FontOptions().withHeight (7.0f)));
-    g.drawText ("LOCK", lockBounds.withHeight (14).translated (0, 4), juce::Justification::centred);
-    drawLockIcon (g, lockBounds.toFloat().withTrimmedTop (12),
-                  isLocked ? juce::Colours::white : juce::Colour (0xffddddee), isLocked);
+    // ── Scale/Key tiles (right column) ─────────────────────────────────────
+    drawCtrlTile (g, getScaleTileBounds (0), "KEY",   keyParam->getCurrentChoiceName(),   scaleActive);
+    drawCtrlTile (g, getScaleTileBounds (1), "SCALE", scaleParam->getCurrentChoiceName(), scaleActive);
 
     // ── Note tiles ─────────────────────────────────────────────────────────
     int stepCount  = proc_.stepCount_.load();
@@ -258,18 +219,6 @@ void SqeletorEditor::paint (juce::Graphics& g)
     float flashBrightness = (elapsed < 20.0f) ? 1.0f
                           : (elapsed < 150.0f) ? 1.0f - (elapsed - 20.0f) / 130.0f
                           : 0.0f;
-
-    // Build preview order if dragging
-    std::array<int, SqeletorProcessor::kMaxSteps> previewOrder{};
-    for (int i = 0; i < SqeletorProcessor::kMaxSteps; ++i)
-        previewOrder[static_cast<size_t> (i)] = i;
-
-    if (draggingTile_ >= 0 && dragTargetSlot_ >= 0 && dragTargetSlot_ != draggingTile_)
-    {
-        // Swap preview
-        std::swap (previewOrder[static_cast<size_t> (draggingTile_)],
-                   previewOrder[static_cast<size_t> (dragTargetSlot_)]);
-    }
 
     for (int slot = 0; slot < SqeletorProcessor::kMaxSteps; ++slot)
     {
@@ -282,43 +231,29 @@ void SqeletorEditor::paint (juce::Graphics& g)
             continue;
         }
 
-        // Skip the slot occupied by the dragged tile (it will be drawn at cursor)
-        if (draggingTile_ >= 0 && slot == draggingTile_)
-            continue;
+        bool isActive = (slot == activeStep);
 
-        int stepIdx  = previewOrder[static_cast<size_t> (slot)];
-        bool isActive = (stepIdx == activeStep) && draggingTile_ < 0;
-        int  noteNum  = proc_.steps_[static_cast<size_t> (stepIdx)].noteNumber;
-        bool isRest   = (noteNum < 0);
+        // For in-progress drag, override displayed note
+        int noteNum;
+        if (dragTile_ == slot)
+            noteNum = dragCurrentNote_;
+        else
+            noteNum = proc_.steps_[static_cast<size_t> (slot)].noteNumber;
+
+        // Apply scale snap for display (matches what will play)
+        int displayNote = SqeletorProcessor::snapToScale (
+                              noteNum, keyParam->getIndex(), scaleParam->getIndex());
+
+        bool isRest = (displayNote < 0);
         juce::String noteName = isRest
             ? juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93")) // –
-            : juce::MidiMessage::getMidiNoteName (noteNum, true, false, 4);
+            : juce::MidiMessage::getMidiNoteName (displayNote, true, false, 4);
         auto colour = isRest ? juce::Colour (0xff555566)
-                             : kNoteColours[static_cast<size_t> (noteNum) % 12];
+                             : kNoteColours[static_cast<size_t> (displayNote) % 12];
+        int octave = isRest ? -100 : (displayNote / 12 - 1);
 
         drawNoteTile (g, bounds, noteName, isActive, false, isRest, colour,
-                      isActive ? flashBrightness : 0.0f);
-    }
-
-    // Draw dragged tile at cursor position
-    if (draggingTile_ >= 0 && draggingTile_ < stepCount)
-    {
-        auto dragBounds = getNoteTileBounds (draggingTile_)
-                              .withCentre (dragPos_);
-        int  noteNum = proc_.steps_[static_cast<size_t> (draggingTile_)].noteNumber;
-        bool isRest  = (noteNum < 0);
-        juce::String noteName = isRest
-            ? juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93"))
-            : juce::MidiMessage::getMidiNoteName (noteNum, true, false, 4);
-
-        auto colour = isRest ? juce::Colour (0xff555566)
-                             : kNoteColours[static_cast<size_t> (noteNum) % 12];
-
-        // Slight transparency while dragging
-        g.saveState();
-        g.setOpacity (0.85f);
-        drawNoteTile (g, dragBounds, noteName, false, false, isRest, colour);
-        g.restoreState();
+                      isActive ? flashBrightness : 0.0f, octave);
     }
 }
 
@@ -334,21 +269,21 @@ void SqeletorEditor::mouseDown (const juce::MouseEvent& event)
 
         switch (i)
         {
-            case 0: // RATE — cycle forward
+            case 0: // RATE — start drag-to-cycle
             {
                 auto* p = static_cast<juce::AudioParameterChoice*> (proc_.apvts.getParameter ("rate"));
-                int next = (p->getIndex() + 1) % p->choices.size();
-                float norm = static_cast<float> (next) / static_cast<float> (p->choices.size() - 1);
-                p->setValueNotifyingHost (norm);
-                break;
+                ctrlDragIndex_    = 0;
+                ctrlDragStartY_   = pos.y;
+                ctrlDragBaseStep_ = p->getIndex();
+                return;
             }
-            case 1: // MODE — cycle forward
+            case 1: // MODE — start drag-to-cycle
             {
                 auto* p = static_cast<juce::AudioParameterChoice*> (proc_.apvts.getParameter ("mode"));
-                int next = (p->getIndex() + 1) % p->choices.size();
-                float norm = static_cast<float> (next) / static_cast<float> (p->choices.size() - 1);
-                p->setValueNotifyingHost (norm);
-                break;
+                ctrlDragIndex_    = 1;
+                ctrlDragStartY_   = pos.y;
+                ctrlDragBaseStep_ = p->getIndex();
+                return;
             }
             case 2: // REC — toggle
             {
@@ -363,81 +298,123 @@ void SqeletorEditor::mouseDown (const juce::MouseEvent& event)
                     proc_.restPending_.store (true);
                 break;
             }
-            case 4: // LOCK — toggle
-            {
-                auto* p = static_cast<juce::AudioParameterBool*> (proc_.apvts.getParameter ("locked"));
-                p->setValueNotifyingHost (p->get() ? 0.0f : 1.0f);
-                break;
-            }
         }
         repaint();
         return;
     }
 
-    // ── Note tile drag ───────────────────────────────────────────────────
-    auto* recParam  = static_cast<juce::AudioParameterBool*> (proc_.apvts.getParameter ("recording"));
-    auto* lockParam = static_cast<juce::AudioParameterBool*> (proc_.apvts.getParameter ("locked"));
+    // ── Scale / Key tiles (right column) ─────────────────────────────────
+    for (int i = 0; i < kNumScaleCtrl; ++i)
+    {
+        if (! getScaleTileBounds (i).contains (pos)) continue;
+        const char* paramId = (i == 0) ? "key" : "scale";
+        auto* p = static_cast<juce::AudioParameterChoice*> (proc_.apvts.getParameter (paramId));
+        ctrlDragIndex_    = 4 + i;
+        ctrlDragStartY_   = pos.y;
+        ctrlDragBaseStep_ = p->getIndex();
+        return;
+    }
 
-    if (recParam->get() || lockParam->get()) return;
+    // ── Note tiles ───────────────────────────────────────────────────────
+    auto* recParam = static_cast<juce::AudioParameterBool*> (proc_.apvts.getParameter ("recording"));
+    if (recParam->get()) return;
 
     int tileIndex = noteTileAt (pos);
     if (tileIndex < 0 || tileIndex >= proc_.stepCount_.load()) return;
 
-    draggingTile_   = tileIndex;
-    dragTargetSlot_ = tileIndex;
-    dragPos_        = pos;
+    int currentNote = proc_.steps_[static_cast<size_t> (tileIndex)].noteNumber;
+    bool isRest = (currentNote < 0);
+
+    // Cmd+click: toggle rest (restores previous note when un-resting)
+    if (event.mods.isCommandDown())
+    {
+        int restoreNote = isRest ? proc_.steps_[static_cast<size_t> (tileIndex)].savedNote : -1;
+        proc_.pendingNoteEditNote_.store (restoreNote);
+        proc_.pendingNoteEditStep_.store (tileIndex);
+        repaint();
+        return;
+    }
+
+    dragTile_        = tileIndex;
+    dragStartX_      = pos.x;
+    dragStartY_      = pos.y;
+    dragCurrentNote_ = currentNote;
+    dragBaseIdx_     = isRest ? 0 : (currentNote % 12);
+    dragBaseOctave_  = isRest ? 4 : (currentNote / 12 - 1);
     repaint();
 }
 
 void SqeletorEditor::mouseDrag (const juce::MouseEvent& event)
 {
-    if (draggingTile_ < 0) return;
-
-    dragPos_ = event.getPosition();
-
-    // Find the nearest tile slot to the cursor
-    int stepCount = proc_.stepCount_.load();
-    int nearest = draggingTile_;
-    int nearestDist = std::numeric_limits<int>::max();
-
-    for (int i = 0; i < stepCount; ++i)
+    // ── Ctrl tile drag (RATE / MODE / KEY / SCALE) ──────────────────────
+    if (ctrlDragIndex_ >= 0)
     {
-        auto centre = getNoteTileBounds (i).getCentre();
-        int dist = dragPos_.getDistanceFrom (centre);
-        if (dist < nearestDist) { nearestDist = dist; nearest = i; }
+        const char* paramId = (ctrlDragIndex_ == 0) ? "rate"
+                            : (ctrlDragIndex_ == 1) ? "mode"
+                            : (ctrlDragIndex_ == 4) ? "key"
+                            :                         "scale";
+        auto* p = static_cast<juce::AudioParameterChoice*> (proc_.apvts.getParameter (paramId));
+        int numChoices = (int) p->choices.size();
+        int deltaSteps = (ctrlDragStartY_ - event.getPosition().y) / 32;
+        int newIndex   = ((ctrlDragBaseStep_ + deltaSteps) % numChoices + numChoices) % numChoices;
+        if (newIndex != p->getIndex())
+        {
+            float norm = static_cast<float> (newIndex) / static_cast<float> (numChoices - 1);
+            p->setValueNotifyingHost (norm);
+            repaint();
+        }
+        return;
     }
 
-    if (nearest != dragTargetSlot_)
+    // ── Note tile drag ───────────────────────────────────────────────────
+    if (dragTile_ < 0) return;
+
+    // Left/right → pitch class (wraps through 12 chromatic positions, no rest)
+    int deltaX    = event.getPosition().x - dragStartX_;
+    int newIdx    = ((dragBaseIdx_ + deltaX / 20) % 12 + 12) % 12;
+
+    // Up/down → octave (no wrap, clamp)
+    int deltaY    = dragStartY_ - event.getPosition().y;
+    int newOctave = juce::jlimit (0, 9, dragBaseOctave_ + deltaY / 40);
+
+    int newNote   = juce::jlimit (0, 127, (newOctave + 1) * 12 + newIdx);
+
+    if (newNote != dragCurrentNote_)
     {
-        dragTargetSlot_ = nearest;
+        dragCurrentNote_ = newNote;
         repaint();
-    }
-    else
-    {
-        repaint(); // still repaint for smooth tile follow
     }
 }
 
-void SqeletorEditor::mouseUp (const juce::MouseEvent&)
+void SqeletorEditor::mouseUp (const juce::MouseEvent& event)
 {
-    if (draggingTile_ < 0) return;
-
-    int stepCount = proc_.stepCount_.load();
-
-    if (dragTargetSlot_ != draggingTile_ && stepCount > 1)
+    // ── Ctrl tile drag release (RATE / MODE / KEY / SCALE) ──────────────
+    if (ctrlDragIndex_ >= 0)
     {
-        // Swap the two steps
-        for (int i = 0; i < stepCount; ++i)
-            proc_.pendingSteps_[static_cast<size_t> (i)] =
-                proc_.steps_[static_cast<size_t> (i)];
-
-        std::swap (proc_.pendingSteps_[static_cast<size_t> (draggingTile_)],
-                   proc_.pendingSteps_[static_cast<size_t> (dragTargetSlot_)]);
-
-        proc_.reorderPending_.store (true);
+        if (std::abs (event.getPosition().y - ctrlDragStartY_) < 5)
+        {
+            const char* paramId = (ctrlDragIndex_ == 0) ? "rate"
+                                : (ctrlDragIndex_ == 1) ? "mode"
+                                : (ctrlDragIndex_ == 4) ? "key"
+                                :                         "scale";
+            auto* p = static_cast<juce::AudioParameterChoice*> (proc_.apvts.getParameter (paramId));
+            int numChoices = (int) p->choices.size();
+            int next = (p->getIndex() + 1) % numChoices;
+            float norm = static_cast<float> (next) / static_cast<float> (numChoices - 1);
+            p->setValueNotifyingHost (norm);
+        }
+        ctrlDragIndex_ = -1;
+        repaint();
+        return;
     }
 
-    draggingTile_   = -1;
-    dragTargetSlot_ = -1;
-    repaint();
+    // ── Note tile drag commit ────────────────────────────────────────────
+    if (dragTile_ >= 0)
+    {
+        proc_.pendingNoteEditNote_.store (dragCurrentNote_);
+        proc_.pendingNoteEditStep_.store (dragTile_);
+
+        dragTile_ = -1;
+        repaint();
+    }
 }

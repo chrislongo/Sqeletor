@@ -9,7 +9,11 @@ class SqeletorProcessor final : public juce::AudioProcessor
 public:
     static constexpr int kMaxSteps = 8;
 
-    struct Step { int noteNumber = -1; }; // -1 = rest
+    struct Step
+    {
+        int noteNumber = -1;  // -1 = rest
+        int savedNote  = 60;  // last real note, restored on rest toggle
+    };
 
     SqeletorProcessor();
     ~SqeletorProcessor() override = default;
@@ -39,6 +43,12 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     //==========================================================================
+    // Scale snapping — static so the editor can call it for display too
+    // key: 0=C … 11=B   scaleIdx: 0=Off, 1=Major, 2=Minor, 3-7=modes
+    // Returns noteNum unchanged if scaleIdx==0 or noteNum<0 (rest)
+    static int snapToScale (int noteNum, int key, int scaleIdx);
+
+    //==========================================================================
     // Public APVTS — editor attaches controls here
     juce::AudioProcessorValueTreeState apvts;
 
@@ -49,8 +59,10 @@ public:
 
     // Editor → processor messages (lock-free)
     std::array<Step, kMaxSteps> pendingSteps_{};
-    std::atomic<bool> reorderPending_ { false };
-    std::atomic<bool> restPending_    { false };
+    std::atomic<bool> reorderPending_     { false };
+    std::atomic<bool> restPending_        { false };
+    std::atomic<int>  pendingNoteEditStep_{ -1 };
+    std::atomic<int>  pendingNoteEditNote_{  0 };
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

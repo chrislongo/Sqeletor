@@ -1,6 +1,52 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+// Scale intervals (semitones from root) — index matches scaleIdx-1
+// Order: Major, Minor, Dorian, Phrygian, Lydian, Mixolydian, Locrian
+static constexpr int kScaleIntervals[7][7] = {
+    { 0, 2, 4, 5, 7, 9, 11 },   // Major (Ionian)
+    { 0, 2, 3, 5, 7, 8, 10 },   // Minor (Aeolian)
+    { 0, 2, 3, 5, 7, 9, 10 },   // Dorian
+    { 0, 1, 3, 5, 7, 8, 10 },   // Phrygian
+    { 0, 2, 4, 6, 7, 9, 11 },   // Lydian
+    { 0, 2, 4, 5, 7, 9, 10 },   // Mixolydian
+    { 0, 1, 3, 5, 6, 8, 10 },   // Locrian
+};
+
+int SqeletorProcessor::snapToScale (int noteNum, int key, int scaleIdx)
+{
+    if (scaleIdx == 0 || noteNum < 0) return noteNum;  // Off or rest
+
+    const auto* intervals = kScaleIntervals[scaleIdx - 1];
+    int pitchClass = noteNum % 12;
+    int octave     = noteNum / 12;
+
+    // Find pitch class in the scale with the smallest circular distance
+    int bestPc   = pitchClass;
+    int bestDist = 13;
+    for (int i = 0; i < 7; ++i)
+    {
+        int scalePc = (key + intervals[i]) % 12;
+        int d = std::abs (pitchClass - scalePc);
+        if (d > 6) d = 12 - d;   // circular distance
+        if (d < bestDist) { bestDist = d; bestPc = scalePc; }
+    }
+
+    if (bestDist == 0) return noteNum;   // already in scale
+
+    // Try the same bestPc in the adjacent octaves and pick the nearest MIDI note
+    int snapped    = noteNum;
+    int minAbsDist = 127;
+    for (int oct = octave - 1; oct <= octave + 1; ++oct)
+    {
+        int candidate = oct * 12 + bestPc;
+        if (candidate < 0 || candidate > 127) continue;
+        int d = std::abs (candidate - noteNum);
+        if (d < minAbsDist) { minAbsDist = d; snapped = candidate; }
+    }
+    return snapped;
+}
+
 // stepsPerBeat for each rate option:
 // 1/1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/4., 1/8., 1/16., 1/4T, 1/8T, 1/16T
 static constexpr double kStepsPerBeat[] = {
@@ -38,8 +84,18 @@ SqeletorProcessor::createParameterLayout()
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { "recording", 1 }, "Recording", false));
 
-    layout.add (std::make_unique<juce::AudioParameterBool> (
-        juce::ParameterID { "locked", 1 }, "Locked", false));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "key", 1 }, "Key",
+        juce::StringArray { "C", "C#", "D", "D#", "E", "F",
+                            "F#", "G", "G#", "A", "A#", "B" },
+        0));  // default: C
+
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "scale", 1 }, "Scale",
+        juce::StringArray { "Off", "Major", "Minor",
+                            "Dorian", "Phrygian", "Lydian",
+                            "Mixolyd.", "Locrian" },
+        0));  // default: Off
 
     return layout;
 }
@@ -49,7 +105,11 @@ SqeletorProcessor::SqeletorProcessor()
       apvts (*this, nullptr, "State", createParameterLayout())
 {
     for (int i = 0; i < kMaxSteps; ++i)
+    {
         shuffleOrder_[static_cast<size_t> (i)] = i;
+        steps_[static_cast<size_t> (i)].noteNumber = -1;  // rest
+    }
+    stepCount_.store (kMaxSteps);
 }
 
 //==============================================================================
@@ -116,6 +176,17 @@ void SqeletorProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Apply pending tile reorder from editor drag
     if (reorderPending_.exchange (false))
         steps_ = pendingSteps_;
+
+    // Apply pending note edit from editor drag / toggle
+    if (int s = pendingNoteEditStep_.exchange (-1); s >= 0 && s < kMaxSteps)
+    {
+        auto& step  = steps_[static_cast<size_t> (s)];
+        int newNote = pendingNoteEditNote_.load();
+        // When switching to rest, preserve the last real note for later restore
+        if (newNote < 0 && step.noteNumber >= 0)
+            step.savedNote = step.noteNumber;
+        step.noteNumber = newNote;
+    }
 
     auto* recParam = static_cast<juce::AudioParameterBool*> (apvts.getParameter ("recording"));
     bool isRecording = recParam->get();
@@ -218,6 +289,9 @@ void SqeletorProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             int note = steps_[static_cast<size_t> (playStep)].noteNumber;
             if (note >= 0)
             {
+                auto* keyParam   = static_cast<juce::AudioParameterChoice*> (apvts.getParameter ("key"));
+                auto* scaleParam = static_cast<juce::AudioParameterChoice*> (apvts.getParameter ("scale"));
+                note = snapToScale (note, keyParam->getIndex(), scaleParam->getIndex());
                 outputMidi.addEvent (juce::MidiMessage::noteOn (1, note, (juce::uint8) 100), 0);
                 lastSentNote_ = note;
             }
