@@ -188,7 +188,7 @@ namespace {
     constexpr int kGap          = 8;    // gap between all tiles
     constexpr int kCtrlColWidth = 68;   // left control column width
     constexpr int kTileW        = 120;  // note tile width
-    constexpr int kTileH        = 160;  // note tile height
+    constexpr int kTileH        = 120;  // note tile height (square)
     constexpr int kGridCols     = 4;
     constexpr int kGridRows     = 2;
     // panel width  = kPadding*2 + kCtrlColWidth + kGap + kGridCols*kTileW + (kGridCols-1)*kGap

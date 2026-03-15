@@ -107,7 +107,7 @@ Additional playback modes and flexible step counts for non-diatonic patterns.
 
 - Panel sizes to content — no fixed dimensions; it wraps its controls exactly
 - **Left column (narrow, ~68px):** 5 small control tiles stacked vertically — Rate, Mode, Record, Rest, Lock
-- **Main area:** 8 note tiles in a 2-row × 4-column grid (~120×160px per tile), 8px gaps
+- **Main area:** 8 note tiles in a 2-row × 4-column grid (~120×120px square tiles), 8px gaps
 - Steps fill left-to-right, top-to-bottom (slot 1 = top-left, slot 4 = top-right, slot 5 = bottom-left, slot 8 = bottom-right)
 
 ### UI — Note tiles
