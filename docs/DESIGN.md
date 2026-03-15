@@ -65,12 +65,12 @@ std::atomic<int>     currentStep_;  // index of the step currently playing (shar
 
 ### APVTS parameters
 
-| Parameter ID | Type | Values | Notes |
-|---|---|---|---|
-| `rate` | Choice | `1/1, 1/2, 1/4, 1/8, 1/16, 1/32` | Index 0–5 |
-| `mode` | Choice | `Forward, Reverse, Random` | Index 0–2 |
-| `recording` | Bool | on/off | Toggled by Record tile |
-| `locked` | Bool | on/off | Toggled by Lock tile; disables drag reorder |
+| Parameter ID | Type | Values | Default | Notes |
+|---|---|---|---|---|
+| `rate` | Choice | `1/1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/4., 1/8., 1/16., 1/4T, 1/8T, 1/16T` | `1/8` (index 3) | Dotted and triplet variants included |
+| `mode` | Choice | `Forward, Reverse, Random` | `Forward` (index 0) | |
+| `recording` | Bool | on/off | off | Toggled by Record tile; processor auto-clears on new recording |
+| `locked` | Bool | on/off | off | Toggled by Lock tile; disables drag reorder |
 
 Rate and mode are persisted via APVTS and saved/restored with the plugin state. The step data (`steps_`, `stepCount_`) is serialized in `getStateInformation` / `setStateInformation` as raw bytes appended after the APVTS XML block.
 
@@ -78,34 +78,48 @@ Rate and mode are persisted via APVTS and saved/restored with the plugin state. 
 
 ```
 processBlock(buffer, midiMessages):
-    read AudioPlayHead → tempo, ppqPosition, isPlaying
+    outputMidi = copy of all incoming midiMessages   ← always pass through
+
+    apply any pending tile reorder (atomic flag + shadow buffer)
+
+    if recording just started (wasRecording_ == false):
+        send note-off for any sounding note
+        clear steps_[], reset stepCount to 0
+
+    if restPending_ flag set and recording:
+        append rest step (noteNumber = -1), increment stepCount
+
+    if recording:
+        for each incoming MIDI note-on:
+            steps_[stepCount++] = noteNumber
+            if stepCount == 8: stop recording
+        swap midi ← outputMidi   ← passthrough still delivered
+        return
+
+    read AudioPlayHead → ppqPosition, isPlaying
 
     if not isPlaying:
         send note-off for any sounding note
-        reset currentStep to start position (based on mode)
-        return
-
-    if recording:
-        for each incoming MIDI event:
-            if note-on and stepCount < 8:
-                steps_[stepCount_++] = { noteNumber }
-                if stepCount_ == 8:
-                    set recording = false
-        clear outgoing MIDI
+        reset currentStep_ to kMaxSteps ("none")
+        swap midi ← outputMidi
         return
 
     if stepCount == 0:
+        swap midi ← outputMidi
         return
 
-    calculate stepDuration in samples from tempo + rate
-    calculate current beat position within the loop
+    stepsPerBeat = kStepsPerBeat[rateParam->getIndex()]
+    beatInLoop   = fmod(ppq * stepsPerBeat, stepCount)
+    rawStep      = floor(beatInLoop)
+    playStep     = resolveStep(rawStep, stepCount)   ← applies mode
 
-    if step boundary crossed since last processBlock call:
-        send note-off for previous step (unless it was a rest)
-        advance currentStep (forward / reverse / random logic)
-        if current step is not a rest:
-            send note-on (note, velocity=100)
-            schedule note-off at 80% of stepDuration
+    if playStep != currentStep_:
+        send note-off for previous note
+        currentStep_ = playStep
+        if steps_[playStep].noteNumber >= 0:
+            outputMidi += noteOn(note, velocity=100)
+
+    swap midi ← outputMidi
 ```
 
 ### Step advancement by mode
@@ -131,11 +145,11 @@ The gate-off point is derived the same way: when `fractional part of beatInLoop`
 ### Recording
 
 Recording is a mode flag. While active:
-- Incoming MIDI note-on events are consumed and appended to `steps_[]`.
-- No MIDI is passed through or generated.
+- Incoming MIDI note-on events are captured into `steps_[]` and also forwarded to the instrument via passthrough.
 - Recording ends when `stepCount_ == 8` or the user toggles recording off.
-- Starting a new recording clears `steps_[]` and resets `stepCount_` to 0.
-- The Rest button (handled via a parameter or direct message from the editor) appends a step with `noteNumber = -1`.
+- Starting a new recording clears `steps_[]` and resets `stepCount_` to 0 (detected by comparing `isRecording && !wasRecording_`).
+- The Rest button sets an `atomic<bool> restPending_` flag; the processor appends a rest step (`noteNumber = -1`) at the top of the next `processBlock` call.
+- Recording works regardless of transport state — the processor receives MIDI from the host whether or not the transport is playing.
 
 ### Note-off safety
 
@@ -155,7 +169,7 @@ The editor runs on the message thread. It draws the tile UI and handles user int
 
 ### Timer-driven repaint
 
-The editor uses a `juce::Timer` (30–60 Hz) to poll `currentStep_` from the processor and repaint the tile strip. This is the standard JUCE pattern — the editor never touches the audio thread's data structures directly, only reads atomics.
+The editor uses a `juce::Timer` (60 Hz) to poll `currentStep_` and `stepCount_` from the processor. A repaint is triggered when either value changes — `stepCount_` is needed so tiles fill in visually as notes are recorded (not just when the playback step advances). The editor never touches audio thread data structures directly, only reads atomics.
 
 ### Tile rendering
 
@@ -170,13 +184,13 @@ Note name rendering: `juce::MidiMessage::getMidiNoteName(noteNumber, true, false
 
 ### Controls
 
-All five controls live in the left column as equal-height tiles. They are custom-painted `juce::Component` subclasses drawn directly by the editor, wired to APVTS parameters via attachments:
+All five controls are drawn directly inside `PluginEditor::paint()` as custom rectangles — no JUCE `Component` subclasses. Click handling is in `mouseDown()` which calls `setValueNotifyingHost()` directly on APVTS parameters. There are no `SliderAttachment` / `ButtonAttachment` objects.
 
-- **Rate tile**: cycles through rate values on click. `ComboBoxAttachment` (or custom) bound to `rate`. Displays current value (e.g. "1/8").
-- **Mode tile**: cycles Forward → Reverse → Random on click. `ButtonAttachment` bound to `mode`. Displays a directional symbol (→ / ← / ⇄).
-- **Record tile**: `juce::ToggleButton` + `ButtonAttachment` bound to `recording`. Displays ⏺; visually active while recording.
-- **Rest tile**: plain `juce::TextButton`. On click, sends a message to the processor to append a rest step. Enabled only while recording and `stepCount < 8`. Displays —.
-- **Lock tile**: `juce::ToggleButton` + `ButtonAttachment` bound to `locked`. Displays a flat SVG padlock icon; visually distinct when locked.
+- **Rate tile**: cycles through all 12 rate options on click. Displays the current choice name (e.g. "1/8").
+- **Mode tile**: cycles Forward → Reverse → Random on click. Displays a directional symbol (→ / ← / ⇄ via UTF-8).
+- **Record tile**: toggles the `recording` bool parameter. Inverted (active) while recording.
+- **Rest tile**: sets `restPending_` atomic flag. Displays —. Only useful during recording but always clickable.
+- **Lock tile**: toggles the `locked` bool parameter. Displays a custom padlock icon drawn with JUCE `Path` (rectangle body + arc shackle + keyhole dot). Inverted when locked.
 
 ### Layout
 
@@ -210,7 +224,11 @@ There are only two threads to worry about: the audio thread (processor) and the 
 | APVTS params | Message thread (UI) | Audio thread | JUCE APVTS (lock-free by design) |
 | Tile reorder (P0) | Message thread | Audio thread | Lock-free swap via atomic flag + shadow buffer (see below) |
 
-### P0: Lock-free tile reorder
+### MIDI passthrough implementation
+
+`processBlock` initializes `outputMidi` by copying all incoming events (`outputMidi.addEvents(midi, 0, -1, 0)`) before any other logic. All subsequent code paths — recording, stopped, idle, playback — do `midi.swapWith(outputMidi)` at exit, so passthrough is guaranteed in every state. Sequencer note-on/off events are added to `outputMidi` on top of the passthrough.
+
+### Lock-free tile reorder
 
 When the user finishes a drag reorder, the editor writes the new step order into a shadow array and sets an atomic flag. On the next `processBlock`, the processor detects the flag, copies the shadow array into `steps_[]`, and clears the flag. This avoids any locks on the audio thread.
 

@@ -30,10 +30,17 @@ void SqeletorEditor::timerCallback()
     int count = proc_.stepCount_.load();
     if (step != lastDisplayedStep_ || count != lastDisplayedCount_)
     {
+        if (step != lastDisplayedStep_)
+            stepChangeTime_ = juce::Time::getMillisecondCounter();
         lastDisplayedStep_  = step;
         lastDisplayedCount_ = count;
         repaint();
     }
+
+    // Keep repainting during the flash decay window (~150ms)
+    auto elapsed = juce::Time::getMillisecondCounter() - stepChangeTime_;
+    if (elapsed < 150)
+        repaint();
 }
 
 //==============================================================================
@@ -73,17 +80,17 @@ void SqeletorEditor::drawCtrlTile (juce::Graphics& g,
                                     const juce::String& value,
                                     bool active) const
 {
-    // Active = near-black fill; inactive = white fill on grey panel
-    g.setColour (active ? juce::Colour (0xff111111) : juce::Colours::white);
+    // Active = hot pink; inactive = dark tile
+    g.setColour (active ? juce::Colour (0xffe8347a) : juce::Colour (0xff242432));
     g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
 
     // Tiny label
-    g.setColour (active ? juce::Colour (0xaaffffff) : juce::Colour (0x88000000));
+    g.setColour (active ? juce::Colour (0xccffffff) : juce::Colour (0x99aaaacc));
     g.setFont (juce::Font (juce::FontOptions().withHeight (7.0f)));
     g.drawText (label, bounds.withHeight (14).translated (0, 4), juce::Justification::centred);
 
     // Value
-    g.setColour (active ? juce::Colours::white : juce::Colour (0xff111111));
+    g.setColour (active ? juce::Colours::white : juce::Colour (0xffddddee));
     float fontSize = (value.length() > 4) ? 12.0f : (value.length() > 3) ? 14.0f : 18.0f;
     g.setFont (juce::Font (juce::FontOptions().withHeight (fontSize)));
     g.drawText (value, bounds.withTrimmedTop (10), juce::Justification::centred);
@@ -94,35 +101,71 @@ void SqeletorEditor::drawLockIcon (juce::Graphics& g,
                                     juce::Colour colour,
                                     bool locked) const
 {
-    float cx   = b.getCentreX();
-    float bw   = b.getWidth() * 0.55f;
-    float bodyTop = b.getY() + b.getHeight() * 0.47f;
-    float bodyH   = b.getHeight() * 0.48f;
+    // Scale everything to a small icon centred in b
+    float iconH   = b.getHeight() * 0.62f;
+    float iconW   = iconH * 0.75f;
+    float cx      = b.getCentreX();
+    float cy      = b.getCentreY() + iconH * 0.05f;
 
-    // Body
-    juce::Rectangle<float> body { cx - bw * 0.5f, bodyTop, bw, bodyH };
+    float bodyH   = iconH * 0.55f;
+    float bodyW   = iconW;
+    float bodyTop = cy - bodyH * 0.5f + iconH * 0.1f;
+
+    // Body — filled rounded rect
+    juce::Rectangle<float> body { cx - bodyW * 0.5f, bodyTop, bodyW, bodyH };
     g.setColour (colour);
-    g.fillRoundedRectangle (body, 2.0f);
+    g.fillRoundedRectangle (body, bodyW * 0.12f);
 
-    // Keyhole dot
-    g.setColour (colour.contrasting (0.6f));
-    g.fillEllipse (cx - 2.5f, body.getCentreY() - 2.5f, 5.0f, 5.0f);
-
-    // Shackle
-    float sw = bw * 0.7f;
-    float sh = b.getHeight() * 0.42f;
-    float sy = b.getY() + b.getHeight() * 0.04f;
+    // Shackle — U-arch above body, stroked
+    float sw      = bodyW * 0.58f;          // inner gap width
+    float stroke  = bodyW * 0.18f;          // shackle thickness
+    float archR   = (sw + stroke) * 0.5f;   // outer radius
+    float archTop = bodyTop - archR * 1.1f;
 
     juce::Path shackle;
-    float ox = locked ? 0.0f : sw * 0.35f; // offset shackle right when open
-    shackle.addArc (cx - sw * 0.5f + ox, sy, sw, sh,
-                    juce::MathConstants<float>::pi,
-                    juce::MathConstants<float>::twoPi, true);
+    if (locked)
+    {
+        // Closed: full semicircle, legs drop into the body
+        shackle.addArc (cx - archR, archTop, archR * 2.0f, archR * 2.0f,
+                        juce::MathConstants<float>::pi,
+                        juce::MathConstants<float>::twoPi, true);
+        shackle.lineTo (cx + archR, bodyTop + stroke);
+        shackle.startNewSubPath (cx - archR, bodyTop + stroke);
+        shackle.lineTo (cx - archR, archTop + archR);
+    }
+    else
+    {
+        // Open: right leg lifted clear of body
+        float legY = archTop - archR * 0.35f;
+        shackle.addArc (cx - archR, archTop, archR * 2.0f, archR * 2.0f,
+                        juce::MathConstants<float>::pi,
+                        juce::MathConstants<float>::twoPi, true);
+        shackle.lineTo (cx + archR, legY);
+        shackle.startNewSubPath (cx - archR, bodyTop + stroke);
+        shackle.lineTo (cx - archR, archTop + archR);
+    }
 
-    g.setColour (colour);
-    g.strokePath (shackle, juce::PathStrokeType (2.5f,
+    g.strokePath (shackle, juce::PathStrokeType (stroke,
                                                   juce::PathStrokeType::curved,
                                                   juce::PathStrokeType::rounded));
+}
+
+namespace {
+    // 12-colour palette — one per pitch class (C through B), Vital-style neons
+    static const juce::Colour kNoteColours[12] = {
+        juce::Colour (0xffe8347a),   //  0 C  hot pink
+        juce::Colour (0xffcc3aaa),   //  1 C# rose-magenta
+        juce::Colour (0xffb43de8),   //  2 D  violet
+        juce::Colour (0xff6b3de8),   //  3 D# indigo
+        juce::Colour (0xff3d7de8),   //  4 E  blue
+        juce::Colour (0xff35c4e8),   //  5 F  sky
+        juce::Colour (0xff35e8c4),   //  6 F# teal
+        juce::Colour (0xff35e878),   //  7 G  green
+        juce::Colour (0xffa8e835),   //  8 G# lime
+        juce::Colour (0xffe8d435),   //  9 A  yellow
+        juce::Colour (0xffe87835),   // 10 A# orange
+        juce::Colour (0xffe83535),   // 11 B  red
+    };
 }
 
 void SqeletorEditor::drawNoteTile (juce::Graphics& g,
@@ -130,30 +173,33 @@ void SqeletorEditor::drawNoteTile (juce::Graphics& g,
                                     const juce::String& noteName,
                                     bool isActive,
                                     bool isEmpty,
-                                    bool isRest) const
+                                    bool isRest,
+                                    juce::Colour tileColour,
+                                    float flashBrightness) const
 {
     if (isEmpty)
     {
-        g.setColour (juce::Colour (0x44000000));
+        g.setColour (juce::Colour (0x33aaaacc));
         g.drawRoundedRectangle (bounds.toFloat().reduced (0.5f), 4.0f, 1.0f);
         return;
     }
 
     if (isActive)
     {
-        // Active: near-black fill, white text — same "on" state as other Corvid controls
-        g.setColour (juce::Colour (0xff111111));
+        // Flash: interpolate from tile colour toward white on beat
+        auto fillColour = tileColour.interpolatedWith (juce::Colours::white, flashBrightness);
+        g.setColour (fillColour);
         g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
     }
     else
     {
-        // Inactive filled tile: white on grey panel
-        g.setColour (juce::Colours::white);
+        // Inactive: dark fill
+        g.setColour (juce::Colour (0xff242432));
         g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
     }
 
     auto textColour = isActive ? juce::Colours::white
-                               : (isRest ? juce::Colour (0x55000000) : juce::Colour (0xff111111));
+                               : (isRest ? tileColour.withAlpha (0.35f) : tileColour);
     g.setColour (textColour);
 
     float fontSize = (noteName.length() > 1) ? 62.0f : 88.0f;
@@ -164,10 +210,10 @@ void SqeletorEditor::drawNoteTile (juce::Graphics& g,
 //==============================================================================
 void SqeletorEditor::paint (juce::Graphics& g)
 {
-    // Corvid house style: silver-grey panel with subtle top-to-bottom gradient
-    g.fillAll (juce::Colour (0xffd8d8d8));
-    juce::ColourGradient overlay (juce::Colour (0x18ffffff), 0.0f, 0.0f,
-                                   juce::Colour (0x18000000), 0.0f, (float) getHeight(), false);
+    // Dark panel background
+    g.fillAll (juce::Colour (0xff181820));
+    juce::ColourGradient overlay (juce::Colour (0x10ffffff), 0.0f, 0.0f,
+                                   juce::Colour (0x10000000), 0.0f, (float) getHeight(), false);
     g.setGradientFill (overlay);
     g.fillAll();
 
@@ -195,17 +241,23 @@ void SqeletorEditor::paint (juce::Graphics& g)
 
     // Lock tile — draw manually to get the icon
     auto lockBounds = getCtrlTileBounds (4);
-    g.setColour (isLocked ? juce::Colour (0xff111111) : juce::Colours::white);
+    g.setColour (isLocked ? juce::Colour (0xffe8347a) : juce::Colour (0xff242432));
     g.fillRoundedRectangle (lockBounds.toFloat(), 4.0f);
-    g.setColour (isLocked ? juce::Colour (0xaaffffff) : juce::Colour (0x88000000));
+    g.setColour (isLocked ? juce::Colour (0xccffffff) : juce::Colour (0x99aaaacc));
     g.setFont (juce::Font (juce::FontOptions().withHeight (7.0f)));
     g.drawText ("LOCK", lockBounds.withHeight (14).translated (0, 4), juce::Justification::centred);
     drawLockIcon (g, lockBounds.toFloat().withTrimmedTop (12),
-                  isLocked ? juce::Colours::white : juce::Colour (0xff111111), isLocked);
+                  isLocked ? juce::Colours::white : juce::Colour (0xffddddee), isLocked);
 
     // ── Note tiles ─────────────────────────────────────────────────────────
     int stepCount  = proc_.stepCount_.load();
     int activeStep = proc_.currentStep_.load();
+
+    // LED flash: bright white burst on beat, decays to tile colour over 150ms
+    auto elapsed = (float) (juce::Time::getMillisecondCounter() - stepChangeTime_);
+    float flashBrightness = (elapsed < 20.0f) ? 1.0f
+                          : (elapsed < 150.0f) ? 1.0f - (elapsed - 20.0f) / 130.0f
+                          : 0.0f;
 
     // Build preview order if dragging
     std::array<int, SqeletorProcessor::kMaxSteps> previewOrder{};
@@ -214,16 +266,9 @@ void SqeletorEditor::paint (juce::Graphics& g)
 
     if (draggingTile_ >= 0 && dragTargetSlot_ >= 0 && dragTargetSlot_ != draggingTile_)
     {
-        // Insert-and-shift preview
-        std::vector<int> order;
-        for (int i = 0; i < stepCount; ++i) order.push_back (i);
-        order.erase (order.begin() + draggingTile_);
-        int insertAt = dragTargetSlot_;
-        if (insertAt > draggingTile_) --insertAt;
-        insertAt = juce::jlimit (0, static_cast<int> (order.size()), insertAt);
-        order.insert (order.begin() + insertAt, draggingTile_);
-        for (int i = 0; i < stepCount; ++i)
-            previewOrder[static_cast<size_t> (i)] = order[static_cast<size_t> (i)];
+        // Swap preview
+        std::swap (previewOrder[static_cast<size_t> (draggingTile_)],
+                   previewOrder[static_cast<size_t> (dragTargetSlot_)]);
     }
 
     for (int slot = 0; slot < SqeletorProcessor::kMaxSteps; ++slot)
@@ -248,8 +293,11 @@ void SqeletorEditor::paint (juce::Graphics& g)
         juce::String noteName = isRest
             ? juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93")) // –
             : juce::MidiMessage::getMidiNoteName (noteNum, true, false, 4);
+        auto colour = isRest ? juce::Colour (0xff555566)
+                             : kNoteColours[static_cast<size_t> (noteNum) % 12];
 
-        drawNoteTile (g, bounds, noteName, isActive, false, isRest);
+        drawNoteTile (g, bounds, noteName, isActive, false, isRest, colour,
+                      isActive ? flashBrightness : 0.0f);
     }
 
     // Draw dragged tile at cursor position
@@ -263,10 +311,13 @@ void SqeletorEditor::paint (juce::Graphics& g)
             ? juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93"))
             : juce::MidiMessage::getMidiNoteName (noteNum, true, false, 4);
 
+        auto colour = isRest ? juce::Colour (0xff555566)
+                             : kNoteColours[static_cast<size_t> (noteNum) % 12];
+
         // Slight transparency while dragging
         g.saveState();
         g.setOpacity (0.85f);
-        drawNoteTile (g, dragBounds, noteName, false, false, isRest);
+        drawNoteTile (g, dragBounds, noteName, false, false, isRest, colour);
         g.restoreState();
     }
 }
@@ -375,19 +426,13 @@ void SqeletorEditor::mouseUp (const juce::MouseEvent&)
 
     if (dragTargetSlot_ != draggingTile_ && stepCount > 1)
     {
-        // Build reordered step array using insert-and-shift
-        std::vector<int> order;
-        for (int i = 0; i < stepCount; ++i) order.push_back (i);
-        order.erase (order.begin() + draggingTile_);
-
-        int insertAt = dragTargetSlot_;
-        if (insertAt > draggingTile_) --insertAt;
-        insertAt = juce::jlimit (0, static_cast<int> (order.size()), insertAt);
-        order.insert (order.begin() + insertAt, draggingTile_);
-
+        // Swap the two steps
         for (int i = 0; i < stepCount; ++i)
             proc_.pendingSteps_[static_cast<size_t> (i)] =
-                proc_.steps_[static_cast<size_t> (order[static_cast<size_t> (i)])];
+                proc_.steps_[static_cast<size_t> (i)];
+
+        std::swap (proc_.pendingSteps_[static_cast<size_t> (draggingTile_)],
+                   proc_.pendingSteps_[static_cast<size_t> (dragTargetSlot_)]);
 
         proc_.reorderPending_.store (true);
     }

@@ -187,6 +187,7 @@ void SqeletorProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         sendNoteOff (outputMidi);
         currentStep_.store (kMaxSteps);
         lastShuffleRawStep_ = -1;
+        lastRawStep_ = -1;
         wasPlaying_ = false;
         midi.swapWith (outputMidi);
         return;
@@ -208,16 +209,27 @@ void SqeletorProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     if (playStep != currentStep_.load())
     {
-        sendNoteOff (outputMidi);
-        currentStep_.store (playStep);
-
-        int note = steps_[static_cast<size_t> (playStep)].noteNumber;
-        if (note >= 0)
+        if (rawStep != lastRawStep_)
         {
-            outputMidi.addEvent (juce::MidiMessage::noteOn (1, note, (juce::uint8) 100), 0);
-            lastSentNote_ = note;
+            // Genuine step boundary — fire the note
+            sendNoteOff (outputMidi);
+            currentStep_.store (playStep);
+
+            int note = steps_[static_cast<size_t> (playStep)].noteNumber;
+            if (note >= 0)
+            {
+                outputMidi.addEvent (juce::MidiMessage::noteOn (1, note, (juce::uint8) 100), 0);
+                lastSentNote_ = note;
+            }
+        }
+        else
+        {
+            // Mode changed mid-step — update tracking silently, no MIDI
+            currentStep_.store (playStep);
         }
     }
+
+    lastRawStep_ = rawStep;
 
     wasPlaying_ = true;
     midi.swapWith (outputMidi);

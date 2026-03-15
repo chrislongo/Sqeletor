@@ -83,12 +83,20 @@ Additional playback modes and flexible step counts for non-diatonic patterns.
 
 - Plays back the recorded sequence in a loop, locked to host tempo and transport
 - Follows host play/stop; resets to step 1 on stop or rewind
-- No playback when host is stopped
+- No sequencer output when host is stopped (MIDI passthrough still active)
+
+### MIDI passthrough
+
+- All incoming MIDI always passes through to the instrument — the plugin never silences the input stream
+- During recording, note-ons are captured into the sequence and also forwarded to the instrument (the player hears what they're recording)
+- During sequencer playback, both the sequencer's notes and any live MIDI input are forwarded
+- This means the instrument is always playable, even with Sqeletor inserted
 
 ### Rate
 
 - Playback rate relative to host tempo
-- Options: 1/1, 1/2, 1/4, 1/8, 1/16, 1/32 along with dotted and triplet varients
+- Options: 1/1, 1/2, 1/4, 1/8, 1/16, 1/32, plus dotted (1/4., 1/8., 1/16.) and triplet (1/4T, 1/8T, 1/16T) variants
+- Default: 1/8
 
 ### Playback modes
 
@@ -146,11 +154,13 @@ All controls live in the narrow left column as small tiles:
 
 Sqeletor takes the Torso T-1 hardware sequencer as a visual reference point — matte black chassis, dense grid of backlit pads, minimal labeling — then cranks the LED saturation up and makes the colors per-pitch rather than per-state. The result is a dark hardware-inspired panel where the note tiles glow like actual RGB-backlit silicone pads.
 
-**P0 placeholder (structural):**
-- **Panel background:** `#000000`
-- **Tiles:** flat white (`#ffffff`) with black text — no colors, no effects
-- **Active tile:** inverted (black background, white outline, white text)
-- **Control tiles:** same flat white treatment; labels in tiny uppercase black text above the symbol
+**P0 (shipped):**
+- **Panel background:** `#d8d8d8` silver-grey (Corvid Audio house style) with a subtle top-to-bottom gradient overlay
+- **Inactive note tiles:** flat white (`#ffffff`) with near-black text (`#111111`)
+- **Active (playing) tile:** inverted — near-black background (`#111111`) with white text
+- **Empty slots:** dark outline only, no fill
+- **Control tiles:** white when inactive, near-black when active; tiny uppercase label above symbol
+- **Lock tile:** custom padlock icon drawn with JUCE paths
 
 **P1 target (final aesthetic):**
 - **Panel background:** near-black matte (`#111111`) — evokes anodized aluminum

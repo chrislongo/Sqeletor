@@ -69,5 +69,7 @@ private:
     int lastShuffleRawStep_ { -1 };
     juce::Random rng_;
 
+    int lastRawStep_ { -1 };
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SqeletorProcessor)
 };

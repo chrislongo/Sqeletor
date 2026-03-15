@@ -29,13 +29,16 @@ private:
                         bool active) const;
     void drawNoteTile  (juce::Graphics&, juce::Rectangle<int>,
                         const juce::String& noteName,
-                        bool isActive, bool isEmpty, bool isRest) const;
+                        bool isActive, bool isEmpty, bool isRest,
+                        juce::Colour tileColour = juce::Colours::white,
+                        float flashBrightness = 0.0f) const;
     void drawLockIcon  (juce::Graphics&, juce::Rectangle<float>,
                         juce::Colour colour, bool locked) const;
 
     SqeletorProcessor& proc_;
     int lastDisplayedStep_  { -1 };
     int lastDisplayedCount_ { -1 };
+    juce::uint32 stepChangeTime_ { 0 };
 
     // Drag state
     int draggingTile_  { -1 };
