@@ -53,36 +53,35 @@ A Logic Pro MIDI FX step sequencer that feels like a built-in feature Logic neve
 
 ## Phased delivery
 
-### P0 — MVP
+### P0 — MVP (shipped)
 
-Nothing ships without this. The tile UI ships at P0 — it's the product identity, not a later polish pass. Includes drag reordering and lock; manipulating the sequence is core to the fun.
+The tile UI, dark neon aesthetic, per-pitch colors, LED flash, scale snapping, and 2-axis note editing all shipped at P0. The visual identity is complete.
 
-### P1 — First real feel
+### P1 — Polish and additional modes
 
-Note colors and scale/key awareness. The plugin becomes genuinely musical.
+Additional playback modes, per-step velocity/gate, and any remaining quality-of-life improvements.
 
-### P2 — Quality of life
+### P2 — Extended features
 
-Additional playback modes and flexible step counts for non-diatonic patterns.
+Scale-population tools, variable step counts, and generative options.
 
 ---
 
-## P0 Requirements
+## P0 Requirements (shipped)
 
 ### Recording
 
-- Up to 8 steps; 7 is the natural fit for diatonic patterns but 8 is the cap
+- Starts with 8 rest steps (all slots filled with rests); the user records over them
 - User hits **Record**, then plays notes on a MIDI keyboard; each note-on fills the next step in order
 - **Rests** are entered via a dedicated Rest button (tapped instead of playing a note)
 - Recording stops automatically when step 8 is filled, or manually when the user hits Record again
-- Loop length = number of steps actually recorded (e.g. 4 notes → 4-step loop); no padding to 8
+- Re-recording replaces the entire sequence (all steps reset to rests, count resets to 0)
 - Duplicate pitches supported — each tap = one step regardless of pitch
-- Overdub (punch-in per step) is deferred; re-record replaces the entire sequence
 
 ### Playback
 
 - Plays back the recorded sequence in a loop, locked to host tempo and transport
-- Follows host play/stop; resets to step 1 on stop or rewind
+- Follows host play/stop; resets to step 1 on stop
 - No sequencer output when host is stopped (MIDI passthrough still active)
 
 ### MIDI passthrough
@@ -90,7 +89,6 @@ Additional playback modes and flexible step counts for non-diatonic patterns.
 - All incoming MIDI always passes through to the instrument — the plugin never silences the input stream
 - During recording, note-ons are captured into the sequence and also forwarded to the instrument (the player hears what they're recording)
 - During sequencer playback, both the sequencer's notes and any live MIDI input are forwarded
-- This means the instrument is always playable, even with Sqeletor inserted
 
 ### Rate
 
@@ -104,103 +102,99 @@ Additional playback modes and flexible step counts for non-diatonic patterns.
 - **Reverse** — steps N→1, loop
 - **Random** — shuffle/permutation (each step plays once per cycle before repeating; not pure random)
 
+### Scale snapping
+
+- **Key** selector: root note C through B (12 options)
+- **Scale** selector: Off, Major, Minor, Dorian, Phrygian, Lydian, Mixolydian, Locrian
+- When a scale is active, every note emitted is snapped to the nearest scale degree at playback time; the stored MIDI note is unchanged
+- Scale snap is also applied visually — tiles display the snapped note name and color
+- When scale is Off, notes play as recorded
+
 ### MIDI output
 
 - Emits Note On / Note Off per step
 - Rest steps emit nothing
-- Velocity: fixed (default 100) for now
-- Gate: fixed (~80% of step duration) for now
+- Velocity: fixed (100)
+- Gate: one full step duration (note-off fires at the next step boundary)
 
 ### UI — Layout
 
-- Panel sizes to content — no fixed dimensions; it wraps its controls exactly
-- **Left column (narrow, ~68px):** 5 small control tiles stacked vertically — Rate, Mode, Record, Rest, Lock
-- **Main area:** 8 note tiles in a 2-row × 4-column grid (~120×120px square tiles), 8px gaps
+- **Left column (~68px):** 4 control tiles stacked vertically — Rate, Mode, Record, Rest
+- **Main area:** 8 note tiles in a 2-row × 4-column grid (120×120px square tiles, 8px gaps)
+- **Right column (~68px):** 2 scale control tiles stacked vertically — Key, Scale
 - Steps fill left-to-right, top-to-bottom (slot 1 = top-left, slot 4 = top-right, slot 5 = bottom-left, slot 8 = bottom-right)
+- Panel sizes to content; no fixed dimensions
 
 ### UI — Note tiles
 
-- Each filled tile displays only the note name in very large text filling almost the full tile (e.g. "C", "F#") — no octave number
-- Rest tiles display a dash or rest symbol
-- The currently playing tile is highlighted (inverted at P0; full-brightness neon at P1)
-- Empty (unrecorded) slots are visually subdued
-- Tiles are white with black text at P0 (placeholder); per-pitch-class neon colors are P1
+- Each filled tile displays the note name in very large bold text (e.g. "C", "F#") — no octave in the main label
+- Octave number shown in small text in the bottom-right corner of the tile
+- Rest tiles display an en-dash (–)
+- The currently playing tile is highlighted: full-brightness neon color with a white LED flash burst on beat, decaying over ~150ms
+- Inactive filled tiles display their pitch-class color dimmed (dark background, colored text)
+- Empty slots (unreachable; all 8 are always filled with rests or notes) show a faint outline only
 
-### Tile reordering (drag)
+### UI — Note tile editing
 
-- Drag any filled tile to reorder the sequence without re-recording
-- The dragged tile lifts and follows the cursor
-- As the dragged tile crosses the midpoint of a neighboring tile, the neighbor slides into the vacated slot — tiles animate smoothly to reflect the pending new order
-- On release, the tile drops into its target position; tiles between the original and target positions shift one step toward the origin (insert-and-shift, not swap)
-- Dragging is only active when **not recording** and **not locked** (see Lock below)
-- Works during playback — the sequence updates live; the current step index resets to step 1 on reorder
+- **2-axis drag** on any note tile (outside of recording mode):
+  - Drag left/right → scrubs through the 12 pitch classes (every 20px = 1 semitone of pitch class)
+  - Drag up/down → changes the octave (every 40px = 1 octave), clamped to MIDI range
+  - The tile updates live during the drag; the change commits on mouse-up
+- **Cmd+click** on a note tile toggles the step between a rest and its last non-rest pitch (the previous pitch is remembered and restored)
 
-### Lock
+### UI — Control tiles
 
-- A **Lock** toggle in the control column prevents accidental reordering during performance
-- When locked: drag gestures on tiles are ignored; the lock control is visually distinct (e.g. lit indicator)
-- Lock does not affect recording or playback — only disables drag reordering
+Control tiles support both click and vertical drag:
+- **Click** (drag < 5px): cycles to the next option
+- **Vertical drag**: scrubs through options (32px per step, wraps)
 
-### UI — Controls
-
-All controls live in the narrow left column as small tiles:
-- **Rate:** small tile, top of left column
-- **Playback mode:** small tile; cycles or displays current mode (→, ←, shuffle); active mode highlighted
-- **Record:** small tile; glows/pulses while recording is active
-- **Rest:** small tile; active only during recording; enters a silent step
-- **Lock:** small tile; when active, disables drag reordering to prevent accidental changes during performance; visually distinct when engaged
+Controls:
+- **Rate tile**: cycles/scrubs through all 12 rate options; displays current choice (e.g. "1/8")
+- **Mode tile**: cycles/scrubs Forward → Reverse → Random; always shown active (pink)
+- **Record tile**: click toggles recording; glows pink while recording is active
+- **Rest tile**: click enters a silent step (only effective during recording)
+- **Key tile**: cycles/scrubs through 12 root notes; highlighted when a scale is active
+- **Scale tile**: cycles/scrubs through Off + 7 scales; highlighted when active
 
 ### UI — Design language
 
-Sqeletor takes the Torso T-1 hardware sequencer as a visual reference point — matte black chassis, dense grid of backlit pads, minimal labeling — then cranks the LED saturation up and makes the colors per-pitch rather than per-state. The result is a dark hardware-inspired panel where the note tiles glow like actual RGB-backlit silicone pads.
+Dark hardware-inspired panel evoking a Torso T-1 or Polyend Tracker — matte black chassis, dense grid of backlit pads, neon LEDs at full saturation.
 
-**P0 (shipped):**
-- **Panel background:** `#d8d8d8` silver-grey (Corvid Audio house style) with a subtle top-to-bottom gradient overlay
-- **Inactive note tiles:** flat white (`#ffffff`) with near-black text (`#111111`)
-- **Active (playing) tile:** inverted — near-black background (`#111111`) with white text
-- **Empty slots:** dark outline only, no fill
-- **Control tiles:** white when inactive, near-black when active; tiny uppercase label above symbol
-- **Lock tile:** custom padlock icon drawn with JUCE paths
-
-**P1 target (final aesthetic):**
-- **Panel background:** near-black matte (`#111111`) — evokes anodized aluminum
-- **Flat** — no bevels, no shadows; hardware realism comes from color and luminance
-- **Tile colors:** 12 vibrant, high-saturation pitch-class colors — purples, cyans, electric blues, magentas, hot pinks, lime greens. Solid colored tile backgrounds (not transparent tints). Aim for neon-backlit-pad energy.
-- **Text:** white on colored tiles; bold; uppercase labels
-- **Active (playing) tile:** brighter variant of its pitch color — the "LED at full brightness" look; glow pulse animation
-- **Rest tiles:** near-black (`#1a1a1a`) — an unlit pad
-- **Empty slots:** very dark, barely-visible outline only
+**Color spec (shipped):**
+- **Panel background:** near-black (`#181820`) with a subtle top-to-bottom gradient overlay
+- **Flat** — no bevels, no shadows
+- **Tile colors:** 12 vibrant pitch-class neon colors — hot pink (C), rose-magenta (C#), violet (D), indigo (D#), blue (E), sky (F), teal (F#), green (G), lime (G#), yellow (A), orange (A#), red (B)
+- **Inactive filled tile:** dark background (`#242432`), colored text at full saturation
+- **Active (playing) tile:** colored background; white LED flash burst on beat, decays to pitch color over 150ms
+- **Rest tiles:** dark background (`#242432`), dimmed color (35% alpha text)
+- **Empty slots:** very faint outline only
+- **Control tiles:** dark (`#242432`) when inactive; hot pink (`#e8347a`) when active; white text
 
 ---
 
 ## P1 Requirements
 
-### Note colors
+### Overdub / per-step punch-in
 
-- One vibrant, high-saturation color per pitch class (12 colors total)
-- Rest tiles are grey/neutral
-- Full 12-color palette defined here; at P0 tiles render in a placeholder neutral color
+Deferred. Re-record replaces the entire sequence for now.
 
-### Scale / key
+### Additional playback modes
 
-- Dropdown to select root note and scale/mode
-- Populates the step slots with the notes of the chosen scale in ascending order
-- Recorded notes snap to the selected scale (or this is how initial slot values are set — TBD)
+- **Pendulum** — forward then reverse, no repeated endpoints
+- **Drunken** — random with some continuity/weighting toward adjacent steps
 
 ---
 
 ## P2 Requirements
 
-### Additional playback modes
-
-- **Pendulum** — forward then reverse, no repeated endpoints
-- **Skip** — TBD
-- **Drunken** — random with some continuity/weighting toward adjacent steps
-
 ### Variable step count
 
 - Support step counts below 8 — pentatonic (5), hexatonic (6), etc.
 - Either a manual count selector or automatic from the chosen scale length
+
+### Scale population
+
+- Button to populate all 8 steps with the notes of the chosen scale in ascending order
 
 ---
 
@@ -208,7 +202,6 @@ Sqeletor takes the Torso T-1 hardware sequencer as a visual reference point — 
 
 These are not planned for any current phase:
 
-- Overdub / per-step punch-in
 - Velocity per step
 - Gate length per step
 - Per-step probability
