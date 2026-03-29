@@ -1,8 +1,10 @@
-# Sqeletor
+# FreakQuencer
 
 A Logic Pro MIDI FX step sequencer. Open it, record a phrase, hear it loop in under 30 seconds.
 
-Sqeletor lives in Logic's **MIDI FX slot** — drop it on any software instrument or external MIDI track, hit Record, play up to 8 notes on your keyboard, and the loop plays back immediately in sync with Logic's transport. Works with hardware synths the same way, no IAC bus or extra routing needed.
+![FreakQuencer in Logic Pro](docs/FreakQuencer.png)
+
+FreakQuencer lives in Logic's **MIDI FX slot** — drop it on any software instrument or external MIDI track, hit Record, play up to 8 notes on your keyboard, and the loop plays back immediately in sync with Logic's transport. Works with hardware synths the same way, no IAC bus or extra routing needed.
 
 Free and open source.
 
@@ -10,11 +12,11 @@ Free and open source.
 
 ## How it works
 
-1. Drop Sqeletor into a Logic MIDI FX slot
+1. Drop FreakQuencer into a Logic MIDI FX slot
 2. Set the playback rate and mode
 3. Hit **Record** and play up to 8 notes on your MIDI keyboard (or tap **Rest** for silent steps)
 4. Recording stops automatically when all steps are filled, or tap Record again to stop early
-5. Hit Play in Logic — Sqeletor loops your phrase in sync with the host
+5. Hit Play in Logic — FreakQuencer loops your phrase in sync with the host
 
 To re-record, hit Record again. The new phrase replaces the old one.
 

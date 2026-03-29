@@ -1,8 +1,8 @@
-# Sqeletor — Logic MIDI FX Plugin Idea
+# FreakQuencer — Logic MIDI FX Plugin Idea
 
 A Logic MIDI FX Sequencer
 
-The name: A fun play on Skeletor and Sequencer.
+The name: A fun play on Freak and Sequencer.
 
 ## Core tenets
 

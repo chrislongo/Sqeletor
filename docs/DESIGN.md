@@ -1,4 +1,4 @@
-# Sqeletor — Technical Design
+# FreakQuencer — Technical Design
 
 High-level architecture for a JUCE-based AUv2 MIDI Effect step sequencer.
 
@@ -320,14 +320,14 @@ As an `aumi` type AU, the plugin receives MIDI input and produces MIDI output. I
 
 ### Autonomous playback
 
-Most MIDI FX plugins only transform or filter incoming MIDI. Sqeletor generates MIDI output from its internal sequencer state regardless of whether any MIDI input is arriving. The AU host calls `processBlock` continuously while the transport is running, even with no MIDI input — the processor uses the host's beat position to decide when to emit notes.
+Most MIDI FX plugins only transform or filter incoming MIDI. FreakQuencer generates MIDI output from its internal sequencer state regardless of whether any MIDI input is arriving. The AU host calls `processBlock` continuously while the transport is running, even with no MIDI input — the processor uses the host's beat position to decide when to emit notes.
 
 ---
 
 ## File structure
 
 ```
-Sqeletor/
+FreakQuencer/
 ├── CMakeLists.txt
 ├── CLAUDE.md
 ├── README.md

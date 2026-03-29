@@ -4,7 +4,7 @@
 #include <array>
 #include <atomic>
 
-class SqeletorProcessor final : public juce::AudioProcessor
+class FreakQuencerProcessor final : public juce::AudioProcessor
 {
 public:
     static constexpr int kMaxSteps = 8;
@@ -15,8 +15,8 @@ public:
         int savedNote  = 60;  // last real note, restored on rest toggle
     };
 
-    SqeletorProcessor();
-    ~SqeletorProcessor() override = default;
+    FreakQuencerProcessor();
+    ~FreakQuencerProcessor() override = default;
 
     //==========================================================================
     // AudioProcessor
@@ -83,5 +83,5 @@ private:
 
     int lastRawStep_ { -1 };
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SqeletorProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FreakQuencerProcessor)
 };

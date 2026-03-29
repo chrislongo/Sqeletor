@@ -3,12 +3,12 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
-class SqeletorEditor final : public juce::AudioProcessorEditor,
+class FreakQuencerEditor final : public juce::AudioProcessorEditor,
                               private juce::Timer
 {
 public:
-    explicit SqeletorEditor (SqeletorProcessor&);
-    ~SqeletorEditor() override = default;
+    explicit FreakQuencerEditor (FreakQuencerProcessor&);
+    ~FreakQuencerEditor() override = default;
 
     void paint      (juce::Graphics&) override;
     void mouseDown  (const juce::MouseEvent&) override;
@@ -35,7 +35,7 @@ private:
                         float flashBrightness = 0.0f,
                         int octave = -100) const;
 
-    SqeletorProcessor& proc_;
+    FreakQuencerProcessor& proc_;
     int lastDisplayedStep_  { -1 };
     int lastDisplayedCount_ { -1 };
     juce::uint32 stepChangeTime_ { 0 };
@@ -53,5 +53,5 @@ private:
     int  dragBaseOctave_  {  0 };   // octave at drag start
     int  dragCurrentNote_ {  0 };   // -1 (rest) or 0-127, used by paint
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SqeletorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FreakQuencerEditor)
 };

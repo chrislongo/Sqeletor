@@ -1,4 +1,4 @@
-# Sqeletor — Market Research
+# FreakQuencer — Market Research
 
 ## The space
 
@@ -114,7 +114,7 @@ Many Logic MIDI FX plugins (Cthulhu, Phrasebox, BlueARP) require held notes to d
 
 ## Hardware sequencers
 
-Not direct competitors, but the workflow paradigm Sqeletor draws from.
+Not direct competitors, but the workflow paradigm FreakQuencer draws from.
 
 ### Roland TR-808 / TR-909 — the step grid paradigm
 The 808 (1980) defined the mental model still used everywhere: rows are instruments, columns are time steps, lit buttons are hits. Purely binary — on or off per step. The 909 (1983) added **programmable shuffle** (swing as a percentage that delays offbeats) and per-track accent, making groove a programmable parameter rather than a fixed characteristic. These two machines established that a sequencer's UX should let you see and toggle the entire pattern at a glance while it plays.
@@ -145,7 +145,7 @@ Two 64-step monophonic melodic sequencers + a 16-track drum sequencer. The defin
 
 ### Key concepts across the hardware landscape
 
-| Concept | Origin | Relevance to Sqeletor |
+| Concept | Origin | Relevance to FreakQuencer |
 |---|---|---|
 | Step grid (rows = instruments, cols = time) | TR-808 | Foundation of the tile row paradigm |
 | Programmable swing/shuffle | TR-909 | Future "feel" parameter |
@@ -158,7 +158,7 @@ Two 64-step monophonic melodic sequencers + a 16-track drum sequencer. The defin
 
 ---
 
-## The opening for Sqeletor
+## The opening for FreakQuencer
 
 The gap is real and specific:
 

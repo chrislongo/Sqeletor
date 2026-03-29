@@ -1,16 +1,16 @@
-# Sqeletor — Product Requirements
+# FreakQuencer — Product Requirements
 
 ## Differentiation
 
-Sqeletor occupies a gap that no existing product fills:
+FreakQuencer occupies a gap that no existing product fills:
 
-**vs. Logic's native Step Sequencer** — Logic's sequencer is region-based: you pre-program patterns in the arrangement and commit before you hear them on a synth. Sqeletor lives in the MIDI FX slot as a live insert — drop it on any instrument track or external MIDI track, hit record, play notes, and the loop plays immediately. It works with hardware synths the same way.
+**vs. Logic's native Step Sequencer** — Logic's sequencer is region-based: you pre-program patterns in the arrangement and commit before you hear them on a synth. FreakQuencer lives in the MIDI FX slot as a live insert — drop it on any instrument track or external MIDI track, hit record, play notes, and the loop plays immediately. It works with hardware synths the same way.
 
-**vs. complex software sequencers (Stepic, Thesys)** — These are powerful but require reading a manual before making music. Sqeletor's recording model is a hardware looper: hit record, play up to 8 notes, done. No menus, no note pickers, no mode switching to get started.
+**vs. complex software sequencers (Stepic, Thesys)** — These are powerful but require reading a manual before making music. FreakQuencer's recording model is a hardware looper: hit record, play up to 8 notes, done. No menus, no note pickers, no mode switching to get started.
 
-**vs. hardware sequencers (Arturia KeyStep, BeatStep Pro)** — Hardware sequencers require physical hardware and don't integrate with Logic's transport and MIDI FX slot. Sqeletor brings the same keyboard-entry workflow (play notes → instant loop) into Logic natively, for free, sequencing any AU instrument or connected hardware.
+**vs. hardware sequencers (Arturia KeyStep, BeatStep Pro)** — Hardware sequencers require physical hardware and don't integrate with Logic's transport and MIDI FX slot. FreakQuencer brings the same keyboard-entry workflow (play notes → instant loop) into Logic natively, for free, sequencing any AU instrument or connected hardware.
 
-**vs. generative tools (Riffer, Stochas, Harmony Bloom)** — These generate or sculpt patterns; you don't compose a specific melody. Sqeletor is deterministic: you play exactly what you want to hear, and it plays it back.
+**vs. generative tools (Riffer, Stochas, Harmony Bloom)** — These generate or sculpt patterns; you don't compose a specific melody. FreakQuencer is deterministic: you play exactly what you want to hear, and it plays it back.
 
 **The specific combination nobody else has:**
 - Logic AU MIDI FX (live insert, not region-based)

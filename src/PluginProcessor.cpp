@@ -13,7 +13,7 @@ static constexpr int kScaleIntervals[7][7] = {
     { 0, 1, 3, 5, 6, 8, 10 },   // Locrian
 };
 
-int SqeletorProcessor::snapToScale (int noteNum, int key, int scaleIdx)
+int FreakQuencerProcessor::snapToScale (int noteNum, int key, int scaleIdx)
 {
     if (scaleIdx == 0 || noteNum < 0) return noteNum;  // Off or rest
 
@@ -66,7 +66,7 @@ static constexpr double kStepsPerBeat[] = {
 
 //==============================================================================
 juce::AudioProcessorValueTreeState::ParameterLayout
-SqeletorProcessor::createParameterLayout()
+FreakQuencerProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
@@ -100,7 +100,7 @@ SqeletorProcessor::createParameterLayout()
     return layout;
 }
 
-SqeletorProcessor::SqeletorProcessor()
+FreakQuencerProcessor::FreakQuencerProcessor()
     : AudioProcessor (BusesProperties()),
       apvts (*this, nullptr, "State", createParameterLayout())
 {
@@ -113,13 +113,13 @@ SqeletorProcessor::SqeletorProcessor()
 }
 
 //==============================================================================
-void SqeletorProcessor::releaseResources()
+void FreakQuencerProcessor::releaseResources()
 {
     juce::MidiBuffer dummy;
     sendNoteOff (dummy);
 }
 
-void SqeletorProcessor::sendNoteOff (juce::MidiBuffer& out, int sampleOffset)
+void FreakQuencerProcessor::sendNoteOff (juce::MidiBuffer& out, int sampleOffset)
 {
     if (lastSentNote_ >= 0)
     {
@@ -128,7 +128,7 @@ void SqeletorProcessor::sendNoteOff (juce::MidiBuffer& out, int sampleOffset)
     }
 }
 
-void SqeletorProcessor::regenerateShuffle (int stepCount)
+void FreakQuencerProcessor::regenerateShuffle (int stepCount)
 {
     for (int i = 0; i < stepCount; ++i)
         shuffleOrder_[static_cast<size_t> (i)] = i;
@@ -143,7 +143,7 @@ void SqeletorProcessor::regenerateShuffle (int stepCount)
     shuffleStepCount_ = stepCount;
 }
 
-int SqeletorProcessor::resolveStep (int rawStep, int stepCount)
+int FreakQuencerProcessor::resolveStep (int rawStep, int stepCount)
 {
     auto* modeParam = static_cast<juce::AudioParameterChoice*> (apvts.getParameter ("mode"));
     int mode = modeParam->getIndex();
@@ -166,7 +166,7 @@ int SqeletorProcessor::resolveStep (int rawStep, int stepCount)
 }
 
 //==============================================================================
-void SqeletorProcessor::processBlock (juce::AudioBuffer<float>& buffer,
+void FreakQuencerProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                       juce::MidiBuffer& midi)
 {
     buffer.clear();
@@ -310,7 +310,7 @@ void SqeletorProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 }
 
 //==============================================================================
-void SqeletorProcessor::getStateInformation (juce::MemoryBlock& destData)
+void FreakQuencerProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     juce::MemoryOutputStream stream (destData, true);
 
@@ -322,7 +322,7 @@ void SqeletorProcessor::getStateInformation (juce::MemoryBlock& destData)
         stream.writeInt (steps_[static_cast<size_t> (i)].noteNumber);
 }
 
-void SqeletorProcessor::setStateInformation (const void* data, int sizeInBytes)
+void FreakQuencerProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     juce::MemoryInputStream stream (data, static_cast<size_t> (sizeInBytes), false);
 
@@ -338,13 +338,13 @@ void SqeletorProcessor::setStateInformation (const void* data, int sizeInBytes)
 }
 
 //==============================================================================
-juce::AudioProcessorEditor* SqeletorProcessor::createEditor()
+juce::AudioProcessorEditor* FreakQuencerProcessor::createEditor()
 {
-    return new SqeletorEditor (*this);
+    return new FreakQuencerEditor (*this);
 }
 
 //==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new SqeletorProcessor();
+    return new FreakQuencerProcessor();
 }

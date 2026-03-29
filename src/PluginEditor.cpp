@@ -23,14 +23,14 @@ namespace {
 }
 
 //==============================================================================
-SqeletorEditor::SqeletorEditor (SqeletorProcessor& p)
+FreakQuencerEditor::FreakQuencerEditor (FreakQuencerProcessor& p)
     : AudioProcessorEditor (p), proc_ (p)
 {
     setSize (kPanelW, kPanelH);
     startTimerHz (60);
 }
 
-void SqeletorEditor::timerCallback()
+void FreakQuencerEditor::timerCallback()
 {
     int step  = proc_.currentStep_.load();
     int count = proc_.stepCount_.load();
@@ -52,7 +52,7 @@ void SqeletorEditor::timerCallback()
 //==============================================================================
 // Layout helpers
 
-juce::Rectangle<int> SqeletorEditor::getCtrlTileBounds (int index) const
+juce::Rectangle<int> FreakQuencerEditor::getCtrlTileBounds (int index) const
 {
     return { kPadding,
              kPadding + index * (kCtrlTileH + kGap),
@@ -60,7 +60,7 @@ juce::Rectangle<int> SqeletorEditor::getCtrlTileBounds (int index) const
              kCtrlTileH };
 }
 
-juce::Rectangle<int> SqeletorEditor::getNoteTileBounds (int index) const
+juce::Rectangle<int> FreakQuencerEditor::getNoteTileBounds (int index) const
 {
     int col = index % kGridCols;
     int row = index / kGridCols;
@@ -69,7 +69,7 @@ juce::Rectangle<int> SqeletorEditor::getNoteTileBounds (int index) const
              kTileW, kTileH };
 }
 
-juce::Rectangle<int> SqeletorEditor::getScaleTileBounds (int index) const
+juce::Rectangle<int> FreakQuencerEditor::getScaleTileBounds (int index) const
 {
     return { kRightColX,
              kPadding + index * (kScaleTileH + kGap),
@@ -77,9 +77,9 @@ juce::Rectangle<int> SqeletorEditor::getScaleTileBounds (int index) const
              kScaleTileH };
 }
 
-int SqeletorEditor::noteTileAt (juce::Point<int> pos) const
+int FreakQuencerEditor::noteTileAt (juce::Point<int> pos) const
 {
-    for (int i = 0; i < SqeletorProcessor::kMaxSteps; ++i)
+    for (int i = 0; i < FreakQuencerProcessor::kMaxSteps; ++i)
         if (getNoteTileBounds (i).contains (pos))
             return i;
     return -1;
@@ -88,7 +88,7 @@ int SqeletorEditor::noteTileAt (juce::Point<int> pos) const
 //==============================================================================
 // Drawing
 
-void SqeletorEditor::drawCtrlTile (juce::Graphics& g,
+void FreakQuencerEditor::drawCtrlTile (juce::Graphics& g,
                                     juce::Rectangle<int> bounds,
                                     const juce::String& /*label*/,
                                     const juce::String& value,
@@ -124,7 +124,7 @@ namespace {
     };
 }
 
-void SqeletorEditor::drawNoteTile (juce::Graphics& g,
+void FreakQuencerEditor::drawNoteTile (juce::Graphics& g,
                                     juce::Rectangle<int> bounds,
                                     const juce::String& noteName,
                                     bool isActive,
@@ -175,7 +175,7 @@ void SqeletorEditor::drawNoteTile (juce::Graphics& g,
 }
 
 //==============================================================================
-void SqeletorEditor::paint (juce::Graphics& g)
+void FreakQuencerEditor::paint (juce::Graphics& g)
 {
     // Dark panel background
     g.fillAll (juce::Colour (0xff181820));
@@ -220,7 +220,7 @@ void SqeletorEditor::paint (juce::Graphics& g)
                           : (elapsed < 150.0f) ? 1.0f - (elapsed - 20.0f) / 130.0f
                           : 0.0f;
 
-    for (int slot = 0; slot < SqeletorProcessor::kMaxSteps; ++slot)
+    for (int slot = 0; slot < FreakQuencerProcessor::kMaxSteps; ++slot)
     {
         auto bounds  = getNoteTileBounds (slot);
         bool isEmpty = slot >= stepCount;
@@ -241,7 +241,7 @@ void SqeletorEditor::paint (juce::Graphics& g)
             noteNum = proc_.steps_[static_cast<size_t> (slot)].noteNumber;
 
         // Apply scale snap for display (matches what will play)
-        int displayNote = SqeletorProcessor::snapToScale (
+        int displayNote = FreakQuencerProcessor::snapToScale (
                               noteNum, keyParam->getIndex(), scaleParam->getIndex());
 
         bool isRest = (displayNote < 0);
@@ -258,7 +258,7 @@ void SqeletorEditor::paint (juce::Graphics& g)
 }
 
 //==============================================================================
-void SqeletorEditor::mouseDown (const juce::MouseEvent& event)
+void FreakQuencerEditor::mouseDown (const juce::MouseEvent& event)
 {
     auto pos = event.getPosition();
 
@@ -344,7 +344,7 @@ void SqeletorEditor::mouseDown (const juce::MouseEvent& event)
     repaint();
 }
 
-void SqeletorEditor::mouseDrag (const juce::MouseEvent& event)
+void FreakQuencerEditor::mouseDrag (const juce::MouseEvent& event)
 {
     // ── Ctrl tile drag (RATE / MODE / KEY / SCALE) ──────────────────────
     if (ctrlDragIndex_ >= 0)
@@ -386,7 +386,7 @@ void SqeletorEditor::mouseDrag (const juce::MouseEvent& event)
     }
 }
 
-void SqeletorEditor::mouseUp (const juce::MouseEvent& event)
+void FreakQuencerEditor::mouseUp (const juce::MouseEvent& event)
 {
     // ── Ctrl tile drag release (RATE / MODE / KEY / SCALE) ──────────────
     if (ctrlDragIndex_ >= 0)
